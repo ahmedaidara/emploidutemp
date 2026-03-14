@@ -3,114 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saldia - Gestion Intelligente</title>
+    <title>Saldia - Expert Scheduler Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; padding-bottom: 70px; }
-        .page { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; padding-bottom: 80px; }
+        .page { display: none; padding: 20px; max-width: 1300px; margin: 0 auto; }
         .page.active { display: block; }
-        .glass-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .glass-card { background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         
-        /* Navbar Responsive */
         @media (min-width: 769px) {
-            .nav-bar { top: 0; left: 0; right: 0; height: 60px; display: flex; justify-content: center; background: white; border-bottom: 1px solid #e2e8f0; position: fixed; z-index: 1000; }
-            .nav-item { padding: 0 15px; height: 100%; display: flex; align-items: center; cursor: pointer; border-bottom: 2px solid transparent; }
-            .nav-item.active { border-color: #2563eb; color: #2563eb; }
-            .page { padding-top: 80px; }
+            .nav-bar { top: 0; left: 0; right: 0; height: 65px; display: flex; justify-content: center; background: #1e293b; color: white; position: fixed; z-index: 1000; }
+            .nav-item { padding: 0 20px; height: 100%; display: flex; align-items: center; cursor: pointer; gap: 8px; transition: 0.3s; border-bottom: 3px solid transparent; }
+            .nav-item:hover { background: #334155; }
+            .nav-item.active { border-color: #3b82f6; background: #334155; }
+            .page { padding-top: 90px; }
         }
         @media (max-width: 768px) {
-            .nav-bar { bottom: 0; left: 0; right: 0; height: 60px; display: flex; justify-content: space-around; background: white; border-top: 1px solid #e2e8f0; position: fixed; z-index: 1000; }
-            .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; flex: 1; }
-            .nav-item.active { color: #2563eb; font-weight: bold; }
+            .nav-bar { bottom: 0; left: 0; right: 0; height: 65px; display: flex; justify-content: space-around; background: #1e293b; color: white; position: fixed; z-index: 1000; }
+            .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; flex: 1; gap: 4px; }
+            .nav-item.active { color: #3b82f6; }
         }
 
-        .grid-timetable { display: grid; grid-template-columns: 80px repeat(5, 1fr); gap: 1px; background: #cbd5e1; border: 1px solid #cbd5e1; }
-        .cell { background: white; padding: 8px; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 11px; }
-        .cell.header { background: #f1f5f9; font-weight: bold; }
-        input, select { border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; width: 100%; }
-        button { border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.95); }
+        .grid-timetable { display: grid; grid-template-columns: 90px repeat(5, 1fr); gap: 1px; background: #cbd5e1; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+        .cell { background: white; padding: 6px; min-height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 11px; }
+        .cell.header { background: #f8fafc; font-weight: bold; color: #475569; }
+        .matiere-tag { font-weight: 700; color: #1e40af; }
+        .prof-tag { font-size: 9px; color: #64748b; font-style: italic; margin-top: 2px; }
+        select, input { border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; width: 100%; outline: none; }
+        select:focus, input:focus { border-color: #3b82f6; }
     </style>
 </head>
 <body>
 
 <div id="app">
-    <nav class="nav-bar shadow-sm">
-        <div class="nav-item active" onclick="showPage('page-classes')">🏠 Classes</div>
-        <div class="nav-item" onclick="showPage('page-profs')">👨‍🏫 Profs</div>
-        <div class="nav-item" onclick="showPage('page-horaires')">📊 Volumes</div>
-        <div class="nav-item" onclick="showPage('page-generate')">⚡ Générer</div>
-        <div class="nav-item" onclick="showPage('page-history')">📜 Historique</div>
-        <div class="nav-item" onclick="showPage('page-prof-login')">🔑 Espace Prof</div>
+    <nav class="nav-bar shadow-xl">
+        <div class="nav-item active" onclick="showPage('page-config')"><i class="fas fa-cog"></i> <span>Paramètres</span></div>
+        <div class="nav-item" onclick="showPage('page-profs')"><i class="fas fa-user-tie"></i> <span>Profs</span></div>
+        <div class="nav-item" onclick="showPage('page-horaires')"><i class="fas fa-clock"></i> <span>Volumes</span></div>
+        <div class="nav-item" onclick="showPage('page-generate')"><i class="fas fa-magic"></i> <span>Générer</span></div>
+        <div class="nav-item" onclick="showPage('page-history')"><i class="fas fa-folder-open"></i> <span>Archives</span></div>
+        <div class="nav-item" onclick="showPage('page-prof-login')"><i class="fas fa-key"></i> <span>Espace Prof</span></div>
     </nav>
 
-    <div id="page-classes" class="page active">
-        <h2 class="text-2xl font-bold mb-4">Structure de l'école</h2>
-        <div class="grid md:grid-cols-2 gap-4 mb-4" id="class-container"></div>
-        <button onclick="saveClasses()" class="bg-blue-600 text-white p-3 w-full">Sauvegarder la structure</button>
+    <div id="page-config" class="page active">
+        <h2 class="text-2xl font-bold mb-6 text-slate-800"><i class="fas fa-sliders text-blue-500 mr-2"></i>Configuration Générale</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="glass-card">
+                <h3 class="font-bold mb-4 border-b pb-2"><i class="fas fa-book-open mr-2 text-blue-500"></i>Liste des Matières</h3>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="new-matiere" placeholder="Ex: Mathématiques">
+                    <button onclick="addMatiereToSystem()" class="bg-blue-600 text-white px-4 rounded"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="matieres-list-system" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div class="glass-card">
+                <h3 class="font-bold mb-4 border-b pb-2"><i class="fas fa-school mr-2 text-blue-500"></i>Divisions par Niveau</h3>
+                <div id="class-inputs-grid" class="space-y-3 max-h-[400px] overflow-y-auto pr-2"></div>
+                <button onclick="saveClasses()" class="mt-4 bg-slate-800 text-white w-full py-2 rounded font-bold hover:bg-slate-700">Enregistrer les Classes</button>
+            </div>
+        </div>
     </div>
 
     <div id="page-profs" class="page">
-        <h2 class="text-2xl font-bold mb-4">Gestion des Professeurs</h2>
-        <div class="glass-card mb-6">
-            <div class="grid md:grid-cols-3 gap-3 mb-4">
-                <input type="text" id="prof-nom" placeholder="Nom complet">
-                <input type="password" id="prof-pass" placeholder="Code secret">
-                <select id="prof-matiere-select">
-                    <option value="">Matière enseignée</option>
-                </select>
+        <h2 class="text-2xl font-bold mb-6 text-slate-800"><i class="fas fa-user-graduate text-blue-500 mr-2"></i>Gestion des Professeurs</h2>
+        <div class="glass-card mb-8">
+            <div class="grid md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Nom du Prof</label>
+                    <input type="text" id="prof-nom" placeholder="Nom Complet">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Mot de Passe</label>
+                    <input type="password" id="prof-pass" placeholder="Code unique">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Matière</label>
+                    <select id="prof-mat-select"></select>
+                </div>
             </div>
-            <p class="text-sm font-bold mb-2">Niveaux :</p>
-            <div id="prof-levels-check" class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4 text-xs"></div>
-            <button onclick="addProf()" class="bg-blue-600 text-white p-3 w-full">Ajouter le professeur</button>
+            <p class="text-sm font-bold mb-2">Niveaux d'intervention :</p>
+            <div id="prof-lvls-grid" class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4"></div>
+            <button onclick="addProf()" class="bg-blue-600 text-white w-full py-3 rounded-lg font-bold shadow-lg"><i class="fas fa-user-plus mr-2"></i>Ajouter le Professeur</button>
         </div>
-        <div id="list-profs" class="grid md:grid-cols-3 gap-3"></div>
+        <div class="glass-card">
+            <h3 class="font-bold mb-4"><i class="fas fa-list mr-2"></i>Registre des Professeurs</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50">
+                        <tr><th class="p-3">Nom</th><th class="p-3">Matière</th><th class="p-3">Niveaux</th><th class="p-3">Actions</th></tr>
+                    </thead>
+                    <tbody id="prof-table-body"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <div id="page-horaires" class="page">
-        <h2 class="text-2xl font-bold mb-4">Volumes Horaires</h2>
-        <div id="volumes-list" class="grid md:grid-cols-3 gap-4"></div>
+        <h2 class="text-2xl font-bold mb-4 text-slate-800"><i class="fas fa-hourglass-half text-blue-500 mr-2"></i>Volumes Hebdomadaires</h2>
+        <div id="volumes-grid" class="grid md:grid-cols-3 gap-6"></div>
     </div>
 
     <div id="page-generate" class="page">
-        <h2 class="text-2xl font-bold mb-4">Générer Emplois du Temps</h2>
-        <div class="glass-card mb-4 flex flex-wrap gap-4 items-end">
-            <div class="flex-1 min-w-[200px]">
-                <label class="text-sm">Sélectionner une classe</label>
-                <select id="select-classe-gen"></select>
+        <h2 class="text-2xl font-bold mb-6 text-slate-800"><i class="fas fa-bolt text-yellow-500 mr-2"></i>Générateur Automatique</h2>
+        <div class="glass-card mb-6 flex flex-wrap gap-4 items-end bg-slate-50">
+            <div class="flex-1 min-w-[250px]">
+                <label class="text-xs font-bold">Choisir la cible</label>
+                <select id="gen-target-select"></select>
             </div>
-            <button onclick="processGeneration('single')" class="bg-emerald-600 text-white px-6 py-2">Générer cette classe</button>
-            <button onclick="processGeneration('all')" class="bg-indigo-600 text-white px-6 py-2">Générer TOUT le collège/lycée</button>
+            <button onclick="runGeneration('single')" class="bg-blue-600 text-white px-6 py-2 rounded font-bold"><i class="fas fa-play mr-2"></i>Générer</button>
+            <button onclick="runGeneration('all')" class="bg-indigo-600 text-white px-6 py-2 rounded font-bold"><i class="fas fa-layer-group mr-2"></i>Générer Tout Saldia</button>
         </div>
-        <div id="gen-status" class="text-sm font-bold text-blue-600 mb-2"></div>
-        <div id="gen-result" class="glass-card overflow-x-auto min-h-[400px]"></div>
+        <div id="gen-loader" class="hidden text-center p-10"><i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i><p class="mt-2 font-bold">Calcul des contraintes en cours...</p></div>
+        <div id="gen-display"></div>
     </div>
 
     <div id="page-history" class="page">
-        <h2 class="text-2xl font-bold mb-4">Emplois du temps enregistrés</h2>
-        <div id="history-container" class="space-y-4"></div>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-slate-800"><i class="fas fa-archive text-blue-500 mr-2"></i>Archives des Emplois du Temps</h2>
+            <select id="filter-history" class="w-48" onchange="loadHistory()"></select>
+        </div>
+        <div id="history-list" class="space-y-10"></div>
     </div>
 
     <div id="page-prof-login" class="page">
-        <div class="max-w-md mx-auto glass-card mt-10">
-            <h2 class="text-xl font-bold mb-4 text-center">Connexion Professeur</h2>
-            <input type="text" id="login-nom" placeholder="Nom" class="mb-3">
-            <input type="password" id="login-pass" placeholder="Mot de passe" class="mb-4">
-            <button onclick="loginProf()" class="bg-blue-600 text-white p-3 w-full">Se connecter</button>
+        <div class="max-w-md mx-auto glass-card mt-20 text-center">
+            <i class="fas fa-user-circle text-6xl text-slate-300 mb-4"></i>
+            <h2 class="text-xl font-bold mb-6">Accès Professeur</h2>
+            <input type="text" id="lp-nom" placeholder="Nom d'utilisateur" class="mb-3">
+            <input type="password" id="lp-pass" placeholder="Mot de passe" class="mb-6">
+            <button onclick="loginProf()" class="bg-blue-600 text-white w-full py-3 rounded-lg font-bold">Se Connecter</button>
         </div>
     </div>
 
     <div id="page-prof-dash" class="page">
-        <div class="flex justify-between items-center mb-4">
-            <h2 id="dash-prof-name" class="text-xl font-bold"></h2>
-            <button onclick="logout()" class="text-red-500 font-bold">Quitter</button>
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="pd-name" class="text-xl font-bold"></h2>
+            <button onclick="showPage('page-prof-login')" class="text-red-500 font-bold"><i class="fas fa-sign-out-alt"></i> Quitter</button>
         </div>
-        <div class="glass-card overflow-x-auto mb-4">
-            <p class="text-xs text-gray-500 mb-2">Cochez vos disponibilités (Vert = Libre)</p>
-            <div id="prof-dispo-grid" class="grid-timetable"></div>
+        <div class="glass-card overflow-x-auto mb-6">
+            <h3 class="font-bold mb-4 text-emerald-600"><i class="fas fa-calendar-check mr-2"></i>Mes Disponibilités</h3>
+            <div id="pd-dispo-grid" class="grid-timetable"></div>
         </div>
-        <button onclick="saveProfDispo()" class="bg-emerald-600 text-white p-3 w-full">Enregistrer mes disponibilités</button>
+        <button onclick="saveProfDispo()" class="bg-emerald-600 text-white w-full py-3 rounded-lg font-bold shadow-lg">Enregistrer les disponibilités</button>
     </div>
 </div>
 
@@ -130,12 +167,11 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const levels = ["6EME", "5EME", "4EME", "3EME", "2ND S", "2ND L", "2ND STEG", "1ERE S", "1ERE L", "1ERE STEG", "TERM S", "TERM L", "TERM STEG"];
-    const matieres = ["Mathématiques", "Français", "Anglais", "H-G", "SVT", "PC", "Philosophie", "EPS", "Arabe", "STEG"];
+    const lvls = ["6EME", "5EME", "4EME", "3EME", "2ND S", "2ND L", "2ND STEG", "1ERE S", "1ERE L", "1ERE STEG", "TERM S", "TERM L", "TERM STEG"];
     const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
-    const timeSlots = ["08:00", "09:00", "10:00", "11:05", "12:05", "13:35", "14:35", "15:35", "16:35"];
+    const slots = ["08:00", "09:00", "10:00", "11:05", "12:05", "13:35", "14:35", "15:35", "16:35"];
 
-    let state = { classes: {}, profs: [], volumes: {}, currentUser: null };
+    let state = { matieres: [], classes: {}, profs: [], volumes: {}, user: null };
 
     window.showPage = (id) => {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -146,47 +182,51 @@
         if(id === 'page-history') loadHistory();
     };
 
-    async function loadData() {
-        const classSnap = await getDoc(doc(db, "config", "classes"));
-        if(classSnap.exists()) state.classes = classSnap.data();
+    async function loadAll() {
+        const mSnap = await getDoc(doc(db, "config", "matieres"));
+        state.matieres = mSnap.exists() ? mSnap.data().list : [];
         
-        const profSnap = await getDocs(collection(db, "profs"));
-        state.profs = profSnap.docs.map(d => d.data());
+        const cSnap = await getDoc(doc(db, "config", "classes"));
+        state.classes = cSnap.exists() ? cSnap.data() : {};
+        
+        const pSnap = await getDocs(collection(db, "profs"));
+        state.profs = pSnap.docs.map(d => d.data());
 
-        for(const l of levels) {
+        for(let l of lvls) {
             const vSnap = await getDoc(doc(db, "horaires", l));
             if(vSnap.exists()) state.volumes[l] = vSnap.data();
         }
-        renderUI();
+        renderEverything();
     }
 
-    function renderUI() {
+    function renderEverything() {
+        // Matières
+        const mList = document.getElementById('matieres-list-system');
+        mList.innerHTML = state.matieres.map(m => `<span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">${m} <i class="fas fa-times cursor-pointer" onclick="removeMatiere('${m}')"></i></span>`).join('');
+        
+        const pMatSel = document.getElementById('prof-mat-select');
+        pMatSel.innerHTML = `<option value="">Choisir...</option>` + state.matieres.map(m => `<option value="${m}">${m}</option>`).join('');
+
         // Classes
-        const cc = document.getElementById('class-container');
-        cc.innerHTML = levels.map(l => `
-            <div class="glass-card">
-                <label class="block font-bold mb-1">${l}</label>
-                <input type="text" id="class-val-${l.replace(' ','_')}" value="${(state.classes[l] || []).join(', ')}" placeholder="Divisions ex: M1, M2 ou A, B">
+        const cGrid = document.getElementById('class-inputs-grid');
+        cGrid.innerHTML = lvls.map(l => `
+            <div class="flex items-center gap-2">
+                <span class="w-24 text-sm font-bold">${l}</span>
+                <input type="text" id="inp-cl-${l.replace(' ','_')}" value="${(state.classes[l] || []).join(', ')}" placeholder="Divisions (M1, M2...)">
             </div>
         `).join('');
 
         // Prof Checkboxes
-        document.getElementById('prof-levels-check').innerHTML = levels.map(l => `
-            <label class="flex items-center gap-1"><input type="checkbox" value="${l}"> ${l}</label>
-        `).join('');
-
-        // Matières Selects
-        const matHtml = `<option value="">Choisir Matière</option>` + matieres.map(m => `<option value="${m}">${m}</option>`).join('');
-        document.getElementById('prof-matiere-select').innerHTML = matHtml;
+        document.getElementById('prof-lvls-grid').innerHTML = lvls.map(l => `<label class="flex items-center gap-1 text-xs"><input type="checkbox" value="${l}"> ${l}</label>`).join('');
 
         // Volumes
-        const volCont = document.getElementById('volumes-list');
-        volCont.innerHTML = levels.map(l => `
+        const vGrid = document.getElementById('volumes-grid');
+        vGrid.innerHTML = lvls.map(l => `
             <div class="glass-card">
-                <h3 class="font-bold border-b mb-2">${l}</h3>
-                <div id="vols-${l.replace(' ','_')}"></div>
-                <button onclick="addVolRow('${l}')" class="text-xs text-blue-600 mt-2">+ Matière</button>
-                <button onclick="saveVol('${l}')" class="block w-full bg-gray-100 mt-2 py-1 text-xs">Sauver</button>
+                <h4 class="font-bold border-b mb-3">${l}</h4>
+                <div id="vol-rows-${l.replace(' ','_')}" class="space-y-2"></div>
+                <button onclick="addVolRow('${l}')" class="text-xs text-blue-600 mt-3 font-bold">+ Ajouter Matière</button>
+                <button onclick="saveVol('${l}')" class="w-full bg-slate-100 mt-3 py-2 text-xs font-bold rounded">Sauvegarder ${l}</button>
             </div>
         `).join('');
 
@@ -194,36 +234,56 @@
             Object.entries(state.volumes[l]).forEach(([m, h]) => addVolRow(l, m, h));
         });
 
-        // Select generation
-        const genSel = document.getElementById('select-classe-gen');
-        genSel.innerHTML = Object.values(state.classes).flat().map(c => `<option value="${c}">${c}</option>`).join('');
+        // Gen targets & History filter
+        const targetSel = document.getElementById('gen-target-select');
+        const histFil = document.getElementById('filter-history');
+        const opts = `<option value="ALL">Toutes les classes</option>` + Object.values(state.classes).flat().map(c => `<option value="${c}">${c}</option>`).join('');
+        targetSel.innerHTML = opts;
+        histFil.innerHTML = `<option value="">Filtrer par niveau...</option>` + lvls.map(l => `<option value="${l}">${l}</option>`).join('');
 
-        renderProfsList();
+        renderProfTable();
     }
 
-    window.addVolRow = (l, m='', h='') => {
-        const div = document.createElement('div');
-        div.className = "flex gap-1 mb-1";
-        div.innerHTML = `
-            <select class="text-xs">${matieres.map(mat => `<option value="${mat}" ${mat==m?'selected':''}>${mat}</option>`).join('')}</select>
-            <input type="number" class="w-12 text-xs" value="${h}">
-        `;
-        document.getElementById(`vols-${l.replace(' ','_')}`).appendChild(div);
+    window.addMatiereToSystem = async () => {
+        const m = document.getElementById('new-matiere').value.trim();
+        if(m && !state.matieres.includes(m)) {
+            state.matieres.push(m);
+            await setDoc(doc(db, "config", "matieres"), { list: state.matieres });
+            document.getElementById('new-matiere').value = "";
+            renderEverything();
+        }
+    };
+
+    window.removeMatiere = async (m) => {
+        state.matieres = state.matieres.filter(x => x !== m);
+        await setDoc(doc(db, "config", "matieres"), { list: state.matieres });
+        renderEverything();
     };
 
     window.saveClasses = async () => {
-        const newData = {};
-        levels.forEach(l => {
-            const val = document.getElementById(`class-val-${l.replace(' ','_')}`).value;
-            newData[l] = val.split(',').filter(x => x).map(x => l + " " + x.trim());
+        const obj = {};
+        lvls.forEach(l => {
+            const val = document.getElementById(`inp-cl-${l.replace(' ','_')}`).value;
+            obj[l] = val.split(',').filter(x => x).map(x => l + " " + x.trim());
         });
-        await setDoc(doc(db, "config", "classes"), newData);
-        alert("Enregistré");
-        loadData();
+        await setDoc(doc(db, "config", "classes"), obj);
+        alert("Classes enregistrées");
+        loadAll();
+    };
+
+    window.addVolRow = (l, m='', h='') => {
+        const cont = document.getElementById(`vol-rows-${l.replace(' ','_')}`);
+        const div = document.createElement('div');
+        div.className = "flex gap-1";
+        div.innerHTML = `
+            <select class="text-xs">${state.matieres.map(mat => `<option value="${mat}" ${mat==m?'selected':''}>${mat}</option>`).join('')}</select>
+            <input type="number" class="w-16 text-xs" value="${h}">
+        `;
+        cont.appendChild(div);
     };
 
     window.saveVol = async (l) => {
-        const rows = document.getElementById(`vols-${l.replace(' ','_')}`).querySelectorAll('div');
+        const rows = document.getElementById(`vol-rows-${l.replace(' ','_')}`).querySelectorAll('div');
         const data = {};
         rows.forEach(r => {
             const m = r.querySelector('select').value;
@@ -232,177 +292,195 @@
         });
         await setDoc(doc(db, "horaires", l), data);
         state.volumes[l] = data;
-        alert("Volume " + l + " sauvé");
+        alert("Volume " + l + " mis à jour");
     };
 
     window.addProf = async () => {
         const nom = document.getElementById('prof-nom').value;
         const pass = document.getElementById('prof-pass').value;
-        const mat = document.getElementById('prof-matiere-select').value;
-        const lvls = Array.from(document.querySelectorAll('#prof-levels-check input:checked')).map(i => i.value);
-        if(!nom || !pass) return alert("Champs vides");
-        await setDoc(doc(db, "profs", nom), { nom, pass, mat, levels: lvls, dispo: {} });
-        loadData();
+        const mat = document.getElementById('prof-mat-select').value;
+        const checked = Array.from(document.querySelectorAll('#prof-lvls-grid input:checked')).map(i => i.value);
+        if(!nom || !pass || !mat) return alert("Complétez tous les champs");
+        await setDoc(doc(db, "profs", nom), { nom, pass, mat, levels: checked, dispo: {} });
+        loadAll();
     };
 
-    function renderProfsList() {
-        document.getElementById('list-profs').innerHTML = state.profs.map(p => `
-            <div class="glass-card text-xs">
-                <b>${p.nom}</b> (${p.mat})<br>
-                <span class="text-gray-500">${p.levels.join(', ')}</span>
-            </div>
+    function renderProfTable() {
+        const body = document.getElementById('prof-table-body');
+        body.innerHTML = state.profs.map(p => `
+            <tr class="border-b">
+                <td class="p-3 font-bold">${p.nom}</td>
+                <td class="p-3"><span class="bg-slate-100 px-2 py-1 rounded">${p.mat}</span></td>
+                <td class="p-3 text-xs text-gray-500">${p.levels.join(', ')}</td>
+                <td class="p-3"><button onclick="delProf('${p.nom}')" class="text-red-500"><i class="fas fa-trash"></i></button></td>
+            </tr>
         `).join('');
     }
 
-    // ALGORITHME DE GENERATION
-    window.processGeneration = async (mode) => {
-        const status = document.getElementById('gen-status');
-        const classesToGen = mode === 'all' ? Object.values(state.classes).flat() : [document.getElementById('select-classe-gen').value];
+    window.delProf = async (id) => { if(confirm("Supprimer?")) { await deleteDoc(doc(db, "profs", id)); loadAll(); }};
+
+    window.runGeneration = async (mode) => {
+        document.getElementById('gen-loader').classList.remove('hidden');
+        document.getElementById('gen-display').innerHTML = "";
         
-        for(let className of classesToGen) {
-            status.innerText = "Génération de : " + className;
-            const schedule = generateLogic(className);
-            await setDoc(doc(db, "history", className), { className, schedule, date: new Date().toLocaleString() });
+        const targets = mode === 'all' ? Object.values(state.classes).flat() : [document.getElementById('gen-target-select').value];
+        
+        for(let t of targets) {
+            const result = generateScheduleLogic(t);
+            await setDoc(doc(db, "history", t), { className: t, schedule: result, date: new Date().toLocaleString() });
         }
-        status.innerText = "Terminé !";
-        loadHistory();
+        
+        document.getElementById('gen-loader').classList.add('hidden');
+        showPage('page-history');
     };
 
-    function generateLogic(className) {
-        const lvl = levels.find(l => className.startsWith(l));
+    function generateScheduleLogic(className) {
+        const lvl = lvls.find(l => className.startsWith(l));
         const vol = state.volumes[lvl] || {};
-        const schedule = {}; 
-        const items = [];
+        const isCollege = ["6EME","5EME","4EME","3EME"].includes(lvl);
+        const maxDaily = isCollege ? 2 : 3;
         
-        Object.entries(vol).forEach(([m, h]) => {
-            for(let i=0; i<h; i++) items.push(m);
-        });
-        items.sort(() => Math.random() - 0.5);
+        let pool = [];
+        Object.entries(vol).forEach(([m, h]) => { for(let i=0; i<h; i++) pool.push(m); });
+        pool.sort(() => Math.random() - 0.5);
 
-        let itemIdx = 0;
-        const maxPerDay = 3;
-
+        let timetable = {};
+        
         days.forEach(day => {
-            let dayCount = 0;
-            let dayMats = {};
-
-            timeSlots.forEach(slot => {
+            let dayTrack = {}; // Suivi par jour
+            slots.forEach(slot => {
                 const key = `${day}-${slot}`;
                 
-                // On cherche un prof dispo pour la matière suivante
-                let found = false;
-                for(let i = itemIdx; i < items.length; i++) {
-                    const matiere = items[i];
+                for(let i=0; i < pool.length; i++) {
+                    const mat = pool[i];
                     
-                    // Contrainte : pas + de 3h par jour par matière
-                    if((dayMats[matiere] || 0) >= maxPerDay) continue;
+                    // Règle 3h Lycée / 2h Collège max par jour
+                    if((dayTrack[mat] || 0) >= maxDaily) continue;
 
-                    const profLibre = state.profs.find(p => 
-                        p.mat === matiere && 
-                        p.levels.includes(lvl) && 
-                        (p.dispo[key] === true)
-                    );
-
-                    if(profLibre || itemIdx >= items.length) {
-                        schedule[key] = items.splice(i, 1)[0];
-                        dayMats[schedule[key]] = (dayMats[schedule[key]] || 0) + 1;
-                        found = true;
+                    // Chercher prof dispo
+                    const prof = state.profs.find(p => p.mat === mat && p.levels.includes(lvl) && p.dispo[key]);
+                    
+                    if(prof || Math.random() > 0.5) { // Autoriser si pas de prof mais besoin de remplir
+                        timetable[key] = { mat, prof: prof ? prof.nom : "" };
+                        dayTrack[mat] = (dayTrack[mat] || 0) + 1;
+                        pool.splice(i, 1);
                         break;
                     }
                 }
-                
-                if(!found && items.length > 0) {
-                   // Forcer si aucune dispo mais matière restante (Pragmatique)
-                   schedule[key] = items.shift();
-                }
             });
         });
-        return schedule;
+        return timetable;
     }
 
-    async function loadHistory() {
+    window.loadHistory = async () => {
+        const filter = document.getElementById('filter-history').value;
         const snap = await getDocs(collection(db, "history"));
-        const cont = document.getElementById('history-container');
+        const cont = document.getElementById('history-list');
         cont.innerHTML = "";
+
         snap.forEach(d => {
             const data = d.data();
+            if(filter && !data.className.startsWith(filter)) return;
+
             const card = document.createElement('div');
-            card.className = "glass-card";
+            card.className = "glass-card shadow-lg";
+            card.id = `edt-${data.className.replace(' ','-')}`;
             card.innerHTML = `
-                <div class="flex justify-between mb-2">
-                    <h3 class="font-bold text-lg">${data.className}</h3>
-                    <div class="flex gap-2">
-                        <button onclick="deleteEdT('${data.className}')" class="text-red-500 text-xs">Supprimer</button>
+                <div class="flex justify-between items-center mb-4 bg-slate-800 text-white p-3 rounded">
+                    <h3 class="font-bold uppercase tracking-wider"><i class="fas fa-chalkboard mr-2"></i>${data.className}</h3>
+                    <div class="flex gap-3">
+                        <button onclick="exportPDF('${card.id}', '${data.className}')" class="bg-red-500 px-3 py-1 rounded text-xs"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button onclick="delHistory('${data.className}')" class="bg-red-700 px-3 py-1 rounded text-xs"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
                 <div class="grid-timetable">
-                    <div class="cell header">H</div>
-                    ${days.map(day => `<div class="cell header">${day}</div>`).join('')}
-                    ${timeSlots.map(slot => `
-                        <div class="cell header">${slot}</div>
-                        ${days.map(day => `<div class="cell" contenteditable="true" onblur="updateCell('${data.className}', '${day}-${slot}', this.innerText)">${data.schedule[day+'-'+slot] || ''}</div>`).join('')}
+                    <div class="cell header">HEURE</div>
+                    ${days.map(d => `<div class="cell header">${d}</div>`).join('')}
+                    ${slots.map(s => `
+                        <div class="cell header font-mono">${s}</div>
+                        ${days.map(d => {
+                            const entry = data.schedule[`${d}-${s}`] || {mat:"", prof:""};
+                            return `
+                                <div class="cell">
+                                    <select onchange="updateCell('${data.className}', '${d}-${s}', this.value)" class="text-[10px] border-none font-bold text-blue-800 bg-transparent text-center">
+                                        <option value="">- Vide -</option>
+                                        ${state.matieres.map(m => `<option value="${m}" ${entry.mat===m?'selected':''}>${m}</option>`).join('')}
+                                    </select>
+                                    <div class="prof-tag">${entry.prof || ''}</div>
+                                </div>
+                            `;
+                        }).join('')}
                     `).join('')}
                 </div>
             `;
             cont.appendChild(card);
         });
-    }
+    };
 
     window.updateCell = async (id, key, val) => {
         const ref = doc(db, "history", id);
         const snap = await getDoc(ref);
         let schedule = snap.data().schedule;
-        schedule[key] = val;
+        
+        // Trouver le prof pour la nouvelle matière
+        const lvl = lvls.find(l => id.startsWith(l));
+        const prof = state.profs.find(p => p.mat === val && p.levels.includes(lvl));
+        
+        schedule[key] = { mat: val, prof: prof ? prof.nom : "" };
         await updateDoc(ref, { schedule });
+        loadHistory();
     };
 
-    window.deleteEdT = async (id) => {
-        if(confirm("Supprimer ?")) {
-            await deleteDoc(doc(db, "history", id));
-            loadHistory();
-        }
+    window.exportPDF = (divId, name) => {
+        const { jsPDF } = window.jspdf;
+        html2canvas(document.getElementById(divId)).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            pdf.addImage(imgData, 'PNG', 10, 10, 280, 150);
+            pdf.save(`Saldia_EDT_${name}.pdf`);
+        });
     };
 
-    // PROF DASHBOARD
+    window.delHistory = async (id) => { if(confirm("Supprimer l'archive ?")) { await deleteDoc(doc(db, "history", id)); loadHistory(); }};
+
+    // PROF LOGIN & DISPO
     window.loginProf = () => {
-        const n = document.getElementById('login-nom').value;
-        const p = document.getElementById('login-pass').value;
+        const n = document.getElementById('lp-nom').value;
+        const p = document.getElementById('lp-pass').value;
         const prof = state.profs.find(x => x.nom === n && x.pass === p);
         if(prof) {
-            state.currentUser = prof;
-            document.getElementById('dash-prof-name').innerText = prof.nom;
+            state.user = prof;
+            document.getElementById('pd-name').innerText = "Espace de " + prof.nom;
             renderProfDispo();
             showPage('page-prof-dash');
-        } else alert("Erreur");
+        } else alert("Erreur d'identifiants");
     };
 
     function renderProfDispo() {
-        const grid = document.getElementById('prof-dispo-grid');
+        const grid = document.getElementById('pd-dispo-grid');
         let html = `<div class="cell header">H</div>` + days.map(d => `<div class="cell header">${d}</div>`).join('');
-        timeSlots.forEach(slot => {
-            html += `<div class="cell header">${slot}</div>`;
-            days.forEach(day => {
-                const key = `${day}-${slot}`;
-                const active = state.currentUser.dispo[key] ? 'bg-emerald-500 text-white' : '';
-                html += `<div class="cell cursor-pointer ${active}" onclick="toggleDispo(this, '${key}')"></div>`;
+        slots.forEach(s => {
+            html += `<div class="cell header">${s}</div>`;
+            days.forEach(d => {
+                const k = `${d}-${s}`;
+                const active = state.user.dispo[k] ? 'bg-emerald-500' : '';
+                html += `<div class="cell cursor-pointer ${active}" onclick="toggleDispo(this, '${k}')"></div>`;
             });
         });
         grid.innerHTML = html;
     }
 
-    window.toggleDispo = (el, key) => {
-        const val = el.classList.toggle('bg-emerald-500');
-        state.currentUser.dispo[key] = val;
+    window.toggleDispo = (el, k) => {
+        const active = el.classList.toggle('bg-emerald-500');
+        state.user.dispo[k] = active;
     };
 
     window.saveProfDispo = async () => {
-        await updateDoc(doc(db, "profs", state.currentUser.nom), { dispo: state.currentUser.dispo });
-        alert("Disponibilités sauvées");
+        await updateDoc(doc(db, "profs", state.user.nom), { dispo: state.user.dispo });
+        alert("Vos disponibilités ont été enregistrées avec succès.");
     };
 
-    window.logout = () => showPage('page-prof-login');
-
-    loadData();
+    loadAll();
 </script>
 
 </body>
