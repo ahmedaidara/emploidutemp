@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instagram Direct Clone - Privé</title>
+    <title>CHAT-IDA</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="manifest" href="manifest.json">
@@ -1255,103 +1255,33 @@ async function activerLesNotifications() {
 // ========== FONCTION POUR DEMANDER LES NOTIFICATIONS ==========
 // ========== FONCTION POUR DEMANDER LES NOTIFICATIONS ==========
 async function demanderPermissionNotifications() {
-    console.log("🔔 Activation des notifications...");
+    console.log("🔔 Tentative d'activation des notifications...");
     
-    try {
-        // 1. Vérifier si le navigateur supporte les notifications
-        if (!("Notification" in window)) {
-            console.log("❌ Notifications non supportées");
-            alert("Votre navigateur ne supporte pas les notifications");
-            return;
-        }
+    // Vérifier si le navigateur supporte les notifications
+    if (!("Notification" in window)) {
+        console.log("Ce navigateur ne supporte pas les notifications");
+        alert("⚠️ Votre navigateur ne supporte pas les notifications");
+        return;
+    }
+    
+    // Demander la permission DIRECTEMENT (sans vérifier l'état actuel)
+    console.log("📢 Demande de permission en cours...");
+    const permission = await Notification.requestPermission();
+    
+    console.log("🔔 Résultat:", permission);
+    
+    if (permission === "granted") {
+        console.log("✅ Permission accordée !");
+        // Afficher une notification test
         
-        // 2. Vérifier si Service Worker est supporté
-        if (!('serviceWorker' in navigator)) {
-            console.log("❌ Service Worker non supporté");
-            alert("Service Worker non supporté");
-            return;
-        }
-        
-        // 3. Demander la permission
-        const permission = await Notification.requestPermission();
-        console.log("Permission:", permission);
-        
-        if (permission === "granted") {
-            // 4. Enregistrer le Service Worker
-            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-            console.log("✅ Service Worker enregistré:", registration);
-            
-            // 5. Attendre que le SW soit actif
-            await navigator.serviceWorker.ready;
-            
-            // 6. Récupérer le token FCM avec VAPID key
-            const vapidKey = 'BPwxUfJfIr_sR5sMxa6ZAFr0XWxsf3Vin904KaB1CXj6THncXEDqwIfbceN8DxGhyUTPVY1d5khXbxMUtV29Fog';
-            const token = await messaging.getToken({
-                serviceWorkerRegistration: registration,
-                vapidKey: vapidKey
-            });
-            
-            if (token) {
-                console.log("🎯 Token FCM:", token);
-                
-                // Sauvegarder le token dans Firestore
-                if (currentUser) {
-                    await db.collection('users').doc(currentUser.id).set({
-                        fcmToken: token,
-                        fcmTokenUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    console.log("💾 Token sauvegardé pour", currentUser.name);
-                }
-                
-                // Notification de succès
-                showTempNotification("✅ Notifications activées !");
-                new Notification("✅ Succès !", {
-                    body: "Vous recevrez les messages même quand l'app est fermée",
-                    icon: "/icon-192.png"
-                });
-            } else {
-                console.log("⚠️ Pas de token reçu");
-                showTempNotification("⚠️ Erreur: impossible d'obtenir le token");
-            }
-        } else if (permission === "denied") {
-            console.log("❌ Permission refusée");
-            alert("❌ Pour recevoir les notifications, autorisez-les dans les paramètres de votre navigateur");
-        }
-    } catch (error) {
-        console.error("❌ Erreur notifications:", error);
-        showTempNotification("❌ Erreur: " + error.message);
+        enregistrerTokenPush();
+    } else if (permission === "denied") {
+        console.log("❌ Permission refusée par l'utilisateur");
+        alert("❌ Vous avez refusé les notifications. Pour les activer, allez dans les paramètres de votre navigateur.");
+    } else {
+        console.log("⏸️ Permission:", permission);
     }
 }
-
-      async function envoyerNotificationPush(utilisateurId, titre, corps) {
-    try {
-        // Récupérer le token FCM de l'utilisateur
-        const userDoc = await db.collection('users').doc(utilisateurId).get();
-        const fcmToken = userDoc.data()?.fcmToken;
-        
-        if (!fcmToken) {
-            console.log("⚠️ Pas de token pour", utilisateurId);
-            return;
-        }
-        
-        // Envoyer via un service (tu devras implémenter un backend ou utiliser un service comme Pushpad)
-        // Pour l'instant, on utilise une API gratuite
-        const response = await fetch('https://ntfy.sh/mon_chat_privé', {
-            method: 'POST',
-            body: corps,
-            headers: {
-                'Title': titre,
-                'Priority': '5',
-                'Tags': 'bell'
-            }
-        });
-        
-        console.log("✅ Notification envoyée à", utilisateurId);
-    } catch(error) {
-        console.error("❌ Erreur envoi:", error);
-    }
-}
-
 
 // Fonction pour enregistrer le token push
 async function enregistrerTokenPush() {
@@ -1414,10 +1344,6 @@ async function enregistrerTokenPush() {
             saveDefaultMood();
             activerLesNotifications();
           demanderPermissionNotifications();
-              setTimeout(() => {
-        verifierStatutNotifications();
-    }, 1000);
-
         }
 
         function logout() {
@@ -1610,17 +1536,43 @@ if (isSent) {
         
         function cancelReply() { replyToId = null; document.getElementById('reply-preview').style.display = 'none'; }
         
-       async function sendTextMessage() {
+     // ========== NOTIFICATIONS NTFY ==========
+async function envoyerNotificationNTFY(messageTexte) {
+    if (!currentUser || !targetUser) return;
+    
+    const sujetDestinataire = `chat_${currentUser.id}_${targetUser.id}`;
+    
+    try {
+        const reponse = await fetch(`https://ntfy.sh/${sujetDestinataire}`, {
+            method: 'POST',
+            body: `📩 ${currentUser.name}: ${messageTexte.substring(0, 100)}`,
+            headers: {
+                'Title': `💬 Nouveau message de ${currentUser.name}`,
+                'Priority': '5',
+                'Tags': 'bell,message',
+                'Click': window.location.href
+            }
+        });
+        
+        if (reponse.ok) {
+            console.log(`✅ Notification envoyée à ${targetUser.name}`);
+        }
+    } catch(erreur) {
+        console.log("❌ Erreur ntfy:", erreur);
+    }
+}
+
+async function sendTextMessage() {
     const input = document.getElementById('chat-in');
     let text = input.value.trim();
     if(!text) return;
     
     if (translateModeActive && currentTargetLang) {
-        showTempNotification(`🔄 Traduction en cours vers ${currentTargetLang.toUpperCase()}...`);
+        showTempNotification(`🔄 Traduction en cours...`);
         const translatedText = await translateTextToLanguage(text, currentTargetLang);
         if (translatedText && translatedText !== text) {
             text = translatedText;
-            showTempNotification(`✅ Message traduit en ${currentTargetLang.toUpperCase()}`);
+            showTempNotification(`✅ Message traduit`);
         }
         translateModeActive = false;
         const translateBtn = document.getElementById('translate-btn');
@@ -1668,17 +1620,10 @@ if (isSent) {
     stopTypingNotify();
     clearLiveTyping();
     
-    // Envoyer le message à Firestore
     await db.collection('chats').doc(CHAT_ID).collection('messages').add(msgData);
     
-    // === NOUVEAU : Envoyer les notifications ===
-    // 1. Notification via NTFY (déjà existante)
-    envoyerNotificationNTFY(targetUser.name, text);
-    
-    // 2. Notification push via FCM (si l'autre utilisateur a activé)
-    if (targetUser && currentUser) {
-        await envoyerNotificationPush(targetUser.id, `💬 ${currentUser.name}`, text);
-    }
+    // 👇 AJOUTE CETTE LIGNE POUR ENVOYER LA NOTIFICATION 👇
+    await envoyerNotificationNTFY(text);
 }
         
         function generateMask(length) {
@@ -2874,7 +2819,7 @@ async function verifierNouveauxMessages() {
             if (Notification.permission === "granted") {
                 new Notification(`${msg.senderName}`, {
                     body: msg.text || "Nouveau message",
-                    icon: 'https://i.imgur.com/ICON.png'
+                    icon: 'https://i.postimg.cc/J400K7Sd/new-Notification.png'
                 });
             }
             
@@ -2912,39 +2857,6 @@ async function envoyerNotificationNTFY(destinataireNom, message) {
     }
 }
 
-      // Fonction pour envoyer une notification push via FCM
-async function envoyerNotificationPush(utilisateurId, titre, corps) {
-    try {
-        // Récupérer le token FCM de l'utilisateur
-        const userDoc = await db.collection('users').doc(utilisateurId).get();
-        const fcmToken = userDoc.data()?.fcmToken;
-        
-        if (!fcmToken) {
-            console.log("⚠️ Pas de token FCM pour", utilisateurId);
-            return;
-        }
-        
-        // Pour tester, on utilise une API gratuite (ntfy.sh)
-        // Dans un vrai projet, tu devrais utiliser un backend ou Firebase Cloud Functions
-        const response = await fetch(`https://ntfy.sh/mon_chat_${CHAT_ID}`, {
-            method: 'POST',
-            body: corps,
-            headers: {
-                'Title': titre,
-                'Priority': '3',
-                'Tags': 'bell,message',
-                'Click': window.location.href
-            }
-        });
-        
-        if (response.ok) {
-            console.log("✅ Notification push envoyée");
-        }
-    } catch(error) {
-        console.error("❌ Erreur envoi push:", error);
-    }
-}
-      
 // Fonction pour recevoir les notifications (à mettre dans l'app de l'autre)
 function ecouterNotificationsNTFY() {
     // Se connecter au sujet ntfy
@@ -2955,7 +2867,7 @@ function ecouterNotificationsNTFY() {
         if (Notification.permission === "granted") {
             new Notification("📱 Nouveau message", {
                 body: event.data,
-                icon: "https://i.imgur.com/icon.png"
+                icon: "https://i.postimg.cc/J400K7Sd/new-Notification.png"
             });
         }
     };
