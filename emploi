@@ -1,0 +1,3628 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Direct Clone - Privé</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        :root {
+            --bg-main: #ffffff;
+            --bg-chat: #ffffff;
+            --text-main: #000000;
+            --text-muted: #737373;
+            --border-color: #dbdbdb;
+            --bubble-received: #efefef;
+            --bubble-sent: linear-gradient(45deg, #a800ff, #0076ff);
+            --bubble-sent-text: #ffffff;
+            --input-bg: #ffffff;
+            --panel-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        [data-theme="dark"] {
+            --bg-main: #000000;
+            --bg-chat: #000000;
+            --text-main: #f5f5f5;
+            --text-muted: #a8a8a8;
+            --border-color: #262626;
+            --bubble-received: #262626;
+            --input-bg: #121212;
+            --panel-bg: rgba(20, 20, 20, 0.95);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #000; color: #fff; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+
+        .app-container { width: 100%; max-width: 450px; height: 100vh; background: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; position: relative; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+        @media(min-width: 800px) { .app-container { height: 92vh; border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); } }
+
+        /* ÉCRAN DE SÉLECTION */
+        #login-screen { position: absolute; inset: 0; background: linear-gradient(135deg, #4f5bd5, #962fbf, #d62976, #feda75); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; padding: 20px; text-align: center; }
+        .login-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); padding: 30px; border-radius: 20px; width: 100%; max-width: 350px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); }
+        .login-card h2 { margin-bottom: 25px; font-weight: 600; color: #fff; display: flex; gap: 10px; justify-content: center; align-items: center; }
+        .user-btn { display: flex; align-items: center; gap: 15px; width: 100%; padding: 15px; background: white; border: none; border-radius: 12px; margin-bottom: 15px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; text-align: left; }
+        .user-btn:hover { transform: scale(1.03); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .user-btn .avatar { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.1rem; }
+        .btn-ida .avatar { background: linear-gradient(45deg, #ff007f, #ff7300); }
+        .btn-aidara .avatar { background: linear-gradient(45deg, #0076ff, #00ffaa); }
+        .user-info-btn { display: flex; flex-direction: column; }
+        .user-info-btn .name { font-weight: 600; color: #111; }
+        .user-info-btn .tag { font-size: 0.85rem; color: #666; }
+
+        /* INTERFACE CHAT */
+        .chat-header { height: 60px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: var(--bg-main); z-index: 2; }
+        .header-left { display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .header-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.9rem; }
+        .header-info .h-name { font-weight: 600; font-size: 0.95rem; }
+        .header-info .h-status { font-size: 0.75rem; color: var(--text-muted); }
+        .header-actions { display: flex; gap: 18px; font-size: 1.2rem; cursor: pointer; color: var(--text-main); }
+
+        /* ZONE MESSAGES */
+        .messages-area { flex: 1; overflow-y: auto; padding: 15px; background: var(--bg-chat); display: flex; flex-direction: column; gap: 10px; position: relative; background-size: cover; background-position: center; }
+        .message-row { display: flex; width: 100%; margin-bottom: 2px; position: relative; }
+        .message-row.sent { justify-content: flex-end; }
+        .message-row.received { justify-content: flex-start; }
+        
+        .message-bubble { max-width: 70%; padding: 10px 16px; border-radius: 22px; font-size: 0.95rem; line-height: 1.4; position: relative; cursor: pointer; user-select: none; transition: transform 0.1s; animation: fadeIn 0.2s ease-out; display: flex; flex-direction: column; gap: 4px; }
+        .sent .message-bubble { background: var(--bubble-sent); color: var(--bubble-sent-text); border-bottom-right-radius: 4px; }
+        .received .message-bubble { background: var(--bubble-received); color: var(--text-main); border-bottom-left-radius: 4px; }
+      
+/* ========== STYLES DE BULLES PERSONNALISÉS ========== */
+
+/* Style 1: Bicolore (dégradé vertical) */
+.message-bubble.bicolor {
+    background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%) !important;
+    color: white !important;
+}
+
+/* Style 2: Rouge et Noir (thème Dark Passion) */
+.message-bubble.dark-passion {
+    background: linear-gradient(45deg, #1a0000, #8b0000, #1a0000) !important;
+    background-size: 200% 200% !important;
+    color: #ff4444 !important;
+    border: 1px solid #ff0000 !important;
+    animation: shimmer 3s ease infinite !important;
+}
+
+@keyframes shimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Style 3: Style Tableau (grille) */
+.message-bubble.grid-style {
+    background: linear-gradient(45deg, #2c3e50, #3498db) !important;
+    background-image: 
+        linear-gradient(#ffffff20 1px, transparent 1px),
+        linear-gradient(90deg, #ffffff20 1px, transparent 1px) !important;
+    background-size: 20px 20px !important;
+    color: white !important;
+    border: 2px solid #ecf0f1 !important;
+}
+
+/* Style 4: Arc-en-ciel (multicolore) */
+.message-bubble.rainbow {
+    background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet) !important;
+    background-size: 400% 100% !important;
+    animation: rainbowMove 3s ease infinite !important;
+    color: white !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 0 black !important;
+}
+
+@keyframes rainbowMove {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+/* Style 5: Néon Glow */
+.message-bubble.neon {
+    background: #0a0a0a !important;
+    color: #00ffcc !important;
+    border: 1px solid #00ffcc !important;
+    box-shadow: 0 0 10px #00ffcc, inset 0 0 5px #00ffcc !important;
+    font-family: monospace !important;
+}
+
+/* Style 6: Wood Texture (bois) */
+.message-bubble.wood {
+    background: linear-gradient(45deg, #8B5A2B, #A0522D, #6B3E1B) !important;
+    color: #FFDEAD !important;
+    border-radius: 15px 15px 15px 5px !important;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.5), 2px 2px 5px rgba(0,0,0,0.3) !important;
+}
+
+/* Style 7: Style Code (développeur) */
+.message-bubble.code-style {
+    background: #1e1e1e !important;
+    color: #d4d4d4 !important;
+    font-family: 'Courier New', monospace !important;
+    border-left: 4px solid #007acc !important;
+    border-radius: 8px !important;
+}
+
+/* Style 8: Style Bulle Comics */
+.message-bubble.comics {
+    background: #fffde7 !important;
+    color: #000 !important;
+    border: 2px solid #000 !important;
+    border-radius: 20px 20px 20px 5px !important;
+    font-family: 'Comic Sans MS', cursive !important;
+    box-shadow: 5px 5px 0px rgba(0,0,0,0.2) !important;
+}
+
+/* Style 9: Style Aquarelle */
+.message-bubble.watercolor {
+    background: linear-gradient(135deg, #667eea, #764ba2, #f093fb) !important;
+    filter: blur(0.3px) !important;
+    color: white !important;
+    border-radius: 25px 8px 25px 8px !important;
+}
+
+/* Style 10: Style Retro (pixelisé) */
+.message-bubble.retro {
+    background: #2d2d2d !important;
+    color: #00ff00 !important;
+    font-family: 'Courier New', monospace !important;
+    border: 2px solid #00ff00 !important;
+    box-shadow: 3px 3px 0px #00ff00 !important;
+}
+
+/* Indicateur de style appliqué */
+.bubble-style-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #a800ff;
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 12px;
+    cursor: pointer;
+    z-index: 2;
+}
+        
+        .msg-meta { font-size: 0.7rem; opacity: 0.7; align-self: flex-end; display: flex; align-items: center; gap: 4px; }
+        .sent .msg-meta { color: #fff; }
+        .received .msg-meta { color: var(--text-muted); }
+        .status-tick { color: #0095f6; font-weight: bold; }
+
+        /* REPLIES & CITATIONS */
+        .reply-citation { font-size: 0.8rem; background: rgba(0,0,0,0.08); padding: 5px 8px; border-left: 3px solid #a800ff; border-radius: 4px; margin-bottom: 4px; }
+        [data-theme="dark"] .reply-citation { background: rgba(255,255,255,0.1); }
+
+        /* BIG EMOJIS */
+        .giant-emoji { font-size: 3.5rem; background: none !important; padding: 0 !important; animation: bounceEmoji 0.4s ease-out; }
+
+        /* INPUT BAR & TOOLS */
+        .reply-bar-preview { display: none; background: var(--input-bg); padding: 8px 15px; border-top: 1px solid var(--border-color); justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); }
+        .chat-input-bar { padding: 12px; background: var(--bg-main); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; }
+        .input-box-container { display: flex; align-items: center; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 25px; padding: 4px 12px; width: 100%; }
+        .chat-input { flex: 1; background: transparent; border: none; padding: 8px; font-size: 0.95rem; color: var(--text-main); outline: none; }
+        .input-actions { display: flex; align-items: center; gap: 14px; color: var(--text-main); font-size: 1.15rem; }
+        .input-actions i { cursor: pointer; transition: color 0.2s; }
+        .input-actions i:hover { color: #a800ff; }
+      
+/* BOUTON 3 POINTS POUR LA TRADUCTION */
+.translate-menu-btn {
+    cursor: pointer;
+    padding: 0 5px;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+      display: flex;
+}
+.translate-menu-btn:hover { color: #0095f6; transform: scale(1.1); }
+      
+      .translate-menu-btn.hidden {
+    display: none !important;
+}
+
+/* MENU DEROULANT DES TRADUCTIONS */
+.translate-dropdown {
+    display: none;
+    position: absolute;
+    bottom: 70px;
+    right: 15px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 8px 0;
+    z-index: 20;
+    min-width: 160px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.translate-dropdown.show { display: block; }
+.translate-option {
+    padding: 10px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    transition: background 0.2s;
+}
+.translate-option:hover { background: #0095f620; }
+.translate-option .flag { font-size: 1.2rem; }
+.translate-option .lang-name { flex: 1; }
+        #send-btn { color: #0095f6; font-weight: 600; font-size: 0.95rem; cursor: pointer; display: none; margin-left: 8px; }
+
+        /* FLOATING PANELS (EMOJIS, CONFIG) */
+        .floating-panel { display: none; position: absolute; bottom: 70px; left: 15px; right: 15px; background: var(--panel-bg); backdrop-filter: blur(15px); border: 1px solid var(--border-color); border-radius: 15px; padding: 15px; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+      
+/* BARRE D'OUTILS MISE EN FORME */
+.format-toolbar {
+    display: none;
+    position: absolute;
+    bottom: 75px;
+    left: 15px;
+    right: 15px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 12px;
+    z-index: 6;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+.format-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    transition: all 0.2s;
+}
+.format-btn:hover { background: #a800ff20; transform: scale(1.05); }
+.format-btn.active { background: #a800ff; color: white; border-color: #a800ff; }
+.format-color-picker { width: 35px; padding: 6px; cursor: pointer; }
+.format-font-select { font-size: 0.8rem; padding: 6px 8px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); cursor: pointer; }
+.format-size-select { font-size: 0.8rem; padding: 6px 8px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); cursor: pointer; }
+.emoji-grid { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); /* Aligne les émojis proprement en 4 colonnes */
+    gap: 15px; 
+    font-size: 1.8rem; 
+    text-align: center; 
+}
+      .emoji-grid span { cursor: pointer; transition: transform 0.1s; }
+        .emoji-grid span:hover { transform: scale(1.3); }
+
+        .settings-grid { display: flex; flex-direction: column; gap: 15px; }
+        .color-pickers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .color-dot { height: 35px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; }
+        .color-dot.active { border-color: var(--text-main); }
+        .bg-pickers { display: flex; gap: 10px; }
+        .bg-thumb { flex: 1; height: 50px; border-radius: 6px; cursor: pointer; background-size: cover; border: 2px solid transparent; }
+        .bg-thumb.active { border-color: #a800ff; }
+
+        /* CONTEXT MENU & REACTION DOCK */
+.context-menu { display: none; position: absolute; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow: hidden; }
+.context-menu#style-submenu { z-index: 1001; background: var(--panel-bg); min-width: 180px; }
+      .context-item { padding: 10px 20px; cursor: pointer; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+        .context-item:hover { background: rgba(168, 0, 255, 0.1); }
+      
+       .reaction-dock { 
+    display: none; /* ← C'est cette ligne qui va le cacher au démarrage */
+    gap: 10px; 
+    padding: 8px; 
+    background: var(--panel-bg); 
+    border-radius: 30px; 
+    border: 1px solid var(--border-color); 
+    position: absolute; 
+    z-index: 101; 
+    font-size: 1.4rem; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+}
+        .reaction-dock span { cursor: pointer; transition: transform 0.1s; }
+        .reaction-dock span:hover { transform: scale(1.3); }
+        .applied-reactions { display: flex; gap: 2px; position: absolute; bottom: -10px; right: 10px; background: var(--panel-bg); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; }
+
+        /* MODE ÉPHÉMÈRE & WHATSAPP IMPORT */
+        .ephemeral-overlay { display: none; position: absolute; inset: 60px 0 70px 0; background: rgba(150, 47, 191, 0.07); border: 2px dashed #962fbf; pointer-events: none; z-index: 1; align-items: center; justify-content: center; }
+        .ephemeral-overlay span { background: #962fbf; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        
+        #import-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 20; justify-content: center; align-items: center; padding: 20px; }
+        .import-box { background: var(--bg-main); color: var(--text-main); width: 100%; max-width: 350px; padding: 25px; border-radius: 15px; border: 1px solid var(--border-color); text-align: center; }
+        .drop-zone { border: 2px dashed var(--border-color); padding: 30px 10px; border-radius: 10px; margin: 15px 0; cursor: pointer; }
+
+        /* ANIMATIONS & DIVERS */
+        .typing-indicator { display: none; align-items: center; gap: 5px; padding: 8px 15px; font-size: 0.8rem; color: var(--text-muted); }
+        .typing-dots { display: flex; gap: 3px; }
+        .typing-dots span { width: 6px; height: 6px; background: var(--text-muted); border-radius: 50%; animation: bounceDot 1.4s infinite ease-in-out both; }
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        .date-separator { text-align: center; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin: 15px 0; text-transform: uppercase; }
+
+        @keyframes bounceDot { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounceEmoji { 0% { transform: scale(0.3); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+        
+        .falling-emoji { position: absolute; pointer-events: none; z-index: 1000; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(105vh) rotate(360deg); } }
+
+        audio { max-width: 180px; height: 32px; margin-top: 5px; }
+        .img-msg { max-width: 200px; border-radius: 12px; margin-top: 5px; cursor: pointer; }
+      
+      /* Style spécifique pour le sous-menu des styles */
+#style-submenu {
+    max-height: 400px;
+    overflow-y: auto;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+#style-submenu .context-item {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+#style-submenu .context-item:hover {
+    background: #a800ff20;
+}
+      /* STYLE POUR MESSAGES CODÉS */
+.message-bubble.coded {
+    background: repeating-linear-gradient(45deg, #2a2a2a, #2a2a2a 10px, #1a1a1a 10px, #1a1a1a 20px) !important;
+    font-family: monospace !important;
+    letter-spacing: 2px;
+}
+.coded-mask {
+    font-family: monospace;
+    font-size: 1.1rem;
+    word-break: break-all;
+    cursor: pointer;
+}
+.coded-mask:hover {
+    opacity: 0.8;
+}
+.locked-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4444;
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 12px;
+    cursor: pointer;
+    z-index: 2;
+}
+.unlocked-badge {
+    background: #00cc44;
+}
+
+/* MODAL POUR CODE PIN */
+.pin-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+.pin-box {
+    background: var(--bg-main);
+    color: var(--text-main);
+    padding: 25px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 300px;
+    width: 90%;
+    border: 1px solid var(--border-color);
+}
+.pin-box h3 {
+    margin-bottom: 15px;
+}
+.pin-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 5px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-main);
+    margin: 15px 0;
+}
+.pin-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+.pin-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.pin-btn.confirm {
+    background: #0095f6;
+    color: white;
+}
+.pin-btn.cancel {
+    background: #ed4956;
+    color: white;
+}
+      /* STYLE POUR AUDIO ÉPHÉMÈRE */
+.ephemeral-audio {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24) !important;
+    border-radius: 20px !important;
+    padding: 8px 12px !important;
+}
+.ephemeral-audio audio {
+    max-width: 180px;
+    height: 32px;
+}
+.ephemeral-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4444;
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    z-index: 2;
+    animation: pulse 1s infinite;
+}
+@keyframes pulse {
+    0% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 0.7; transform: scale(1); }
+}
+.ephemeral-played {
+    opacity: 0.5;
+    filter: blur(2px);
+}
+.ephemeral-played::after {
+    content: "🔇 ÉCOUTÉ";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: black;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+      
+      /* ========== STATUT D'HUMEUR ÉMOJI ANIMÉ ========== */
+.mood-status {
+    position: absolute;
+    bottom: -5px;
+    right: -8px;
+    background: var(--bg-main);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    transition: transform 0.2s;
+    z-index: 5;
+}
+.mood-status:hover {
+    transform: scale(1.2);
+}
+.mood-status.animated {
+    animation: moodPulse 1s ease infinite;
+}
+@keyframes moodPulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168,0,255,0.4); }
+    50% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(168,0,255,0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168,0,255,0); }
+}
+
+/* Panneau de sélection des statuts */
+.mood-panel {
+    display: none;
+    position: absolute;
+    top: 60px;
+    left: 15px;
+    right: 15px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 15px;
+    z-index: 15;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.mood-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    text-align: center;
+}
+.mood-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+}
+.mood-item:hover {
+    transform: scale(1.05);
+    background: #a800ff20;
+    border-color: #a800ff;
+}
+.mood-emoji {
+    font-size: 2rem;
+}
+.mood-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+.mood-item.active {
+    background: #a800ff;
+    border-color: #a800ff;
+}
+.mood-item.active .mood-label {
+    color: white;
+}
+.clear-mood {
+    grid-column: span 4;
+    margin-top: 10px;
+    padding: 10px;
+    background: #ed4956;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.clear-mood:hover {
+    opacity: 0.9;
+}
+      
+      /* Animation pour l'emoji de statut */
+#other-mood-emoji {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+#other-mood-emoji:hover {
+    transform: scale(1.2);
+}
+      
+      /* ========== INDICATEUR DE BATTERIE ========== */
+.battery-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    font-size: 0.7rem;
+    background: var(--input-bg);
+    padding: 2px 6px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+.battery-icon {
+    font-size: 0.75rem;
+}
+.battery-percent {
+    font-weight: 600;
+}
+.battery-low {
+    color: #ff4444;
+    animation: batteryBlink 1s ease infinite;
+}
+.battery-medium {
+    color: #ffaa00;
+}
+.battery-high {
+    color: #00cc44;
+}
+.battery-charging {
+    color: #0095f6;
+}
+@keyframes batteryBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+      /* ========== MODULE FLASH (VIBRATION) ========== */
+.flash-btn {
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: flashPulse 2s ease infinite;
+}
+.flash-btn:hover {
+    transform: scale(1.2);
+    color: #ffaa00;
+}
+.flash-active {
+    animation: flashIntense 0.3s ease infinite;
+    color: #ffaa00 !important;
+}
+@keyframes flashPulse {
+    0%, 100% { opacity: 0.7; text-shadow: 0 0 0px #ffaa00; }
+    50% { opacity: 1; text-shadow: 0 0 3px #ffaa00; }
+}
+@keyframes flashIntense {
+    0%, 100% { transform: scale(1); text-shadow: 0 0 5px #ffaa00; }
+    50% { transform: scale(1.1); text-shadow: 0 0 15px #ffaa00; color: #ff6600; }
+}
+.flash-notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: #ffaa00;
+    font-size: 3rem;
+    padding: 20px;
+    border-radius: 50%;
+    z-index: 2000;
+    animation: flashZoom 0.5s ease-out;
+    pointer-events: none;
+}
+@keyframes flashZoom {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+      
+      /* ========== TABLEAU DE DESSIN CANVAS ========== */
+.canvas-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a1a1a;
+    z-index: 3000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.canvas-toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #2a2a2a;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    z-index: 3001;
+    border-bottom: 1px solid #444;
+}
+.canvas-tool-btn {
+    background: #3a3a3a;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: white;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+.canvas-tool-btn:hover {
+    background: #a800ff;
+    transform: scale(1.05);
+}
+.canvas-tool-btn.active {
+    background: #a800ff;
+    border: 1px solid white;
+}
+.canvas-colors {
+    display: flex;
+    gap: 5px;
+}
+.color-option {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid white;
+    transition: transform 0.1s;
+}
+.color-option:hover {
+    transform: scale(1.1);
+}
+.canvas-area {
+    background: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    cursor: crosshair;
+}
+#drawing-canvas {
+    display: block;
+    background: white;
+    cursor: crosshair;
+}
+.emoji-palette {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2a2a2a;
+    border-radius: 30px;
+    padding: 10px 15px;
+    display: flex;
+    gap: 12px;
+    z-index: 3002;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90%;
+}
+.emoji-palette span {
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+    padding: 5px;
+}
+.emoji-palette span:hover {
+    transform: scale(1.3);
+}
+.canvas-actions {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 3002;
+}
+.canvas-send-btn {
+    background: #0095f6;
+    border: none;
+    border-radius: 30px;
+    padding: 12px 24px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+}
+.canvas-close-btn {
+    background: #ed4956;
+    border: none;
+    border-radius: 30px;
+    padding: 12px 24px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+}
+      
+      /* ========== MODE FLOU POUR MESSAGES ========== */
+.blur-mode .message-bubble {
+    filter: blur(5px);
+    transition: filter 0.2s ease;
+    cursor: pointer;
+}
+.blur-mode .message-bubble:hover {
+    filter: blur(3px);
+}
+.blur-mode .message-bubble.blur-active {
+    filter: blur(5px);
+}
+.blur-mode .message-bubble.blur-cleared {
+    filter: blur(0px);
+}
+.blur-mode .message-bubble.blur-cleared:hover {
+    filter: blur(0px);
+}
+.blur-toggle-btn {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.blur-toggle-btn.active {
+    color: #a800ff;
+    text-shadow: 0 0 3px #a800ff;
+}
+.blur-notification {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(168,0,255,0.9);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    z-index: 2000;
+    animation: fadeInOut 2s ease;
+    pointer-events: none;
+}
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+      
+      /* ========== MODE LIVE ========== */
+.live-bar {
+    height: 4px;
+    background: linear-gradient(90deg, #a800ff, #0076ff, #a800ff);
+    background-size: 200% 100%;
+    animation: liveProgress 2s ease infinite;
+    width: 0%;
+    transition: width 0.1s ease;
+}
+@keyframes liveProgress {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+.live-container {
+    background: var(--bg-main);
+    border-bottom: 1px solid var(--border-color);
+    padding: 5px 15px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.live-container.active {
+    display: flex;
+}
+.live-badge {
+    background: #ff4444;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    animation: livePulse 1s ease infinite;
+}
+@keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+}
+.live-text-preview {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: monospace;
+    background: var(--input-bg);
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+.live-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+    background: #0095f6;
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+    vertical-align: middle;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+.live-toggle-btn {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.live-toggle-btn.active {
+    color: #ff4444;
+    text-shadow: 0 0 3px #ff4444;
+}
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="login-screen">
+            <div class="login-card">
+                <h2><i class="fa-fab fa-instagram"></i> Qui êtes-vous ?</h2>
+                <button class="user-btn btn-ida" onclick="selectUser('ida')">
+                    <div class="avatar">IDA</div>
+                    <div class="user-info-btn">
+                        <span class="name">Ida Wuruss</span>
+                        <span class="tag">IMJM</span>
+                    </div>
+                </button>
+                <button class="user-btn btn-aidara" onclick="selectUser('aidara')">
+                    <div class="avatar">AID</div>
+                    <div class="user-info-btn">
+                        <span class="name">Aidara</span>
+                        <span class="tag">ASIA</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-header">
+                       <div class="header-left" onclick="logout()">
+                <i class="fa-solid fa-arrow-left"></i>
+                <div style="position: relative;">
+                    <div class="header-avatar" id="header-av">--</div>
+                    <div class="mood-status" id="mood-status" onclick="event.stopPropagation(); toggleMoodPanel()">
+                        <span id="mood-emoji">😊</span>
+                    </div>
+                </div>
+                                              <div class="header-info">
+                    <div class="h-name" id="header-display-name">
+                        Correspondant
+                        <span id="other-mood-emoji" style="margin-left: 8px; font-size: 1rem; display: inline-block;">😊</span>
+                    </div>
+                    <div class="h-status" id="header-status-text">
+                        En ligne
+                        <span class="battery-indicator" id="battery-indicator">
+                            <span class="battery-icon" id="battery-icon">🔋</span>
+                            <span class="battery-percent" id="battery-percent">--%</span>
+                        </span>
+                    </div>
+                </div>
+                                 <!-- Panneau de sélection du statut d'humeur -->
+        <div class="mood-panel" id="mood-panel">
+            <div class="mood-grid">
+                <div class="mood-item" onclick="setMood('😊', 'Heureux')">
+                    <span class="mood-emoji">😊</span>
+                    <span class="mood-label">Heureux</span>
+                </div>
+                <div class="mood-item" onclick="setMood('🚿', 'Au douche')">
+                    <span class="mood-emoji">🚿</span>
+                    <span class="mood-label">Au douche</span>
+                </div>
+                <div class="mood-item" onclick="setMood('🍕', 'Manger')">
+                    <span class="mood-emoji">🍕</span>
+                    <span class="mood-label">Manger</span>
+                </div>
+                <div class="mood-item" onclick="setMood('🚶', 'Sorti')">
+                    <span class="mood-emoji">🚶</span>
+                    <span class="mood-label">Sorti</span>
+                </div>
+                <div class="mood-item" onclick="setMood('💼', 'Travail')">
+                    <span class="mood-emoji">💼</span>
+                    <span class="mood-label">Travail</span>
+                </div>
+                <div class="mood-item" onclick="setMood('📚', 'Étude')">
+                    <span class="mood-emoji">📚</span>
+                    <span class="mood-label">Étude</span>
+                </div>
+                <div class="mood-item" onclick="setMood('🎮', 'Jeux')">
+                    <span class="mood-emoji">🎮</span>
+                    <span class="mood-label">Jeux</span>
+                </div>
+                <div class="mood-item" onclick="setMood('😴', 'Dodo')">
+                    <span class="mood-emoji">😴</span>
+                    <span class="mood-label">Dodo</span>
+                </div>
+                <div class="mood-item" onclick="setMood('🏃', 'Sport')">
+                    <span class="mood-emoji">🏃</span>
+                    <span class="mood-label">Sport</span>
+                </div>
+                <div class="mood-item" onclick="setMood('🎵', 'Musique')">
+                    <span class="mood-emoji">🎵</span>
+                    <span class="mood-label">Musique</span>
+                </div>
+                <div class="mood-item" onclick="setMood('📺', 'Netflix')">
+                    <span class="mood-emoji">📺</span>
+                    <span class="mood-label">Netflix</span>
+                </div>
+                <div class="mood-item" onclick="setMood('☕', 'Café')">
+                    <span class="mood-emoji">☕</span>
+                    <span class="mood-label">Café</span>
+                </div>
+                <div class="clear-mood" onclick="clearMood()">❌ Effacer mon statut</div>
+            </div>
+        </div>
+            </div>
+                                              <div class="header-actions">
+                <i class="fa-solid fa-bolt flash-btn" id="flash-btn" title="Faire vibrer le téléphone de l'autre" onclick="triggerFlashVibration()"></i>
+                <i class="fa-solid fa-eye-slash blur-toggle-btn" id="blur-toggle-btn" title="Mode Flou" onclick="toggleBlurMode()"></i>
+                <i class="fa-solid fa-eye live-toggle-btn" id="live-toggle-btn" title="Mode Live : voir ce que l'autre tape en temps réel" onclick="toggleLiveMode()"></i>
+                <i class="fa-solid fa-folder-plus" title="Importer WhatsApp" onclick="toggleModal('import-modal', true)"></i>
+                <i class="fa-solid fa-moon" title="Thème" onclick="toggleTheme()"></i>
+                <i class="fa-solid fa-sliders" title="Paramètres" onclick="togglePanel('settings-panel')"></i>
+            </div>
+        </div>
+        <!-- Barre Mode Live -->
+        <div class="live-container" id="live-container">
+            <div class="live-badge"></div>
+            <div class="live-text-preview" id="live-text-preview">
+                <span id="live-sender-name">...</span> : 
+                <span id="live-message-preview"></span>
+                <span class="live-cursor"></span>
+            </div>
+        </div>
+        <div class="live-bar" id="live-bar"></div>
+        <div class="messages-area" id="msg-area" onscroll="handleSwipeDetect(this)">
+            </div>
+ 
+        <div class="ephemeral-overlay" id="eph-overlay">
+            <span>MODE ÉPHÉMÈRE ACTIF</span>
+        </div>
+
+        <div class="typing-indicator" id="typing-ind">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span id="typing-txt">Quelqu'un écrit...</span>
+        </div>
+
+        <div class="reply-bar-preview" id="reply-preview">
+            <span id="reply-preview-text">Réponse à un message...</span>
+            <i class="fa-solid fa-xmark" onclick="cancelReply()"></i>
+        </div>
+
+        <div class="chat-input-bar">
+            <div class="input-box-container">
+                <i class="fa-regular fa-face-smile" style="cursor:pointer; margin-right:8px;" onclick="togglePanel('emoji-panel')"></i>
+                <input type="text" class="chat-input" id="chat-in" placeholder="Message..." oninput="handleTyping()">
+                              <div class="format-toolbar" id="format-toolbar">
+                    <button class="format-btn" onclick="applyFormat('bold')" id="btn-bold"><b>B</b></button>
+                    <button class="format-btn" onclick="applyFormat('italic')" id="btn-italic"><i>I</i></button>
+                    <button class="format-btn" onclick="applyFormat('strike')" id="btn-strike"><s>S</s></button>
+                    <select class="format-color-picker" id="color-picker" onchange="applyFormat('color', this.value)">
+                        <option value="black">⚫ Noir</option>
+                        <option value="red">🔴 Rouge</option>
+                        <option value="blue">🔵 Bleu</option>
+                        <option value="green">🟢 Vert</option>
+                        <option value="purple">🟣 Violet</option>
+                        <option value="orange">🟠 Orange</option>
+                    </select>
+                    <select class="format-font-select" id="font-picker" onchange="applyFormat('font', this.value)">
+                        <option value="'Inter', sans-serif">Par défaut</option>
+                        <option value="'Arial', sans-serif">Arial</option>
+                        <option value="'Courier New', monospace">Courier</option>
+                        <option value="'Georgia', serif">Georgia</option>
+                        <option value="'Comic Sans MS', cursive">Comic</option>
+                    </select>
+                    <select class="format-size-select" id="size-picker" onchange="applyFormat('size', this.value)">
+                        <option value="14px">Petit</option>
+                        <option value="16px" selected>Normal</option>
+                        <option value="20px">Grand</option>
+                        <option value="24px">Très grand</option>
+                    </select>
+                </div>
+                               <div class="input-actions" id="in-actions">
+    <i class="fa-solid fa-microphone" id="mic-btn" onclick="toggleRecording()"></i>
+    <i class="fa-regular fa-image" onclick="triggerImageUpload()"></i>
+    <i class="fa-solid fa-pencil" onclick="openCanvasDrawer()" style="cursor:pointer;" title="Dessiner"></i>
+    <div class="translate-menu-btn" id="translate-menu-btn" onclick="toggleTranslateMenu(event)">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
+    </div>
+</div>
+<span id="send-btn" onclick="sendTextMessage()">Envoyer</span>
+                              <!-- Menu de traduction déroulant -->
+                                <div class="translate-dropdown" id="translate-dropdown">
+                    <div class="translate-option" onclick="translateInputText('en')">
+                        <span class="flag">🇬🇧</span>
+                        <span class="lang-name">Anglais</span>
+                    </div>
+                    <div class="translate-option" onclick="translateInputText('ar')">
+                        <span class="flag">🇸🇦</span>
+                        <span class="lang-name">Arabe</span>
+                    </div>
+                    <div class="translate-option" onclick="translateInputText('es')">
+                        <span class="flag">🇪🇸</span>
+                        <span class="lang-name">Espagnol</span>
+                    </div>
+                    <div class="translate-option" onclick="translateInputText('ja')">
+                        <span class="flag">🇯🇵</span>
+                        <span class="lang-name">Japonais</span>
+                    </div>
+                    <div class="translate-option" style="border-top: 1px solid var(--border-color); margin-top: 5px;" onclick="toggleCodeMode()">
+                        <span class="flag">🔒</span>
+                        <span class="lang-name">Coder le message</span>
+                    </div>
+                    <div class="translate-option" onclick="toggleEphemeralAudioMode()">
+                        <span class="flag">🎙️</span>
+                        <span class="lang-name">Audio Éphémère</span>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="img-file" accept="image/*" style="display:none;" onchange="uploadImage(this)">
+        </div>
+
+        <div class="floating-panel" id="emoji-panel">
+            <div class="emoji-grid">
+                <span onclick="insertEmoji('😀')">😀</span>
+                <span onclick="insertEmoji('😂')">😂</span>
+                <span onclick="insertEmoji('❤️')">❤️</span>
+                <span onclick="insertEmoji('🔥')">🔥</span>
+                <span onclick="insertEmoji('👍')">👍</span>
+                <span onclick="insertEmoji('🎉')">🎉</span>
+                <span onclick="insertEmoji('😢')">😢</span>
+                <span onclick="insertEmoji('😮')">😮</span>
+            </div>
+        </div>
+
+        <div class="floating-panel" id="settings-panel">
+            <div class="settings-grid">
+                <div>
+                    <h4 style="margin-bottom:8px; font-size:0.85rem;">Couleur des bulles</h4>
+                    <div class="color-pickers">
+                        <div class="color-dot active" style="background:linear-gradient(45deg, #a800ff, #0076ff);" onclick="setBubbleColor('linear-gradient(45deg, #a800ff, #0076ff)', this)"></div>
+                        <div class="color-dot" style="background:linear-gradient(45deg, #ff007f, #7300ff);" onclick="setBubbleColor('linear-gradient(45deg, #ff007f, #7300ff)', this)"></div>
+                        <div class="color-dot" style="background:linear-gradient(45deg, #00b4db, #00ffab);" onclick="setBubbleColor('linear-gradient(45deg, #00b4db, #00ffab)', this)"></div>
+                        <div class="color-dot" style="background:#333;" onclick="setBubbleColor('#333', this)"></div>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="margin-bottom:8px; font-size:0.85rem;">Fond d'écran</h4>
+                    <div class="bg-pickers">
+                        <div class="bg-thumb active" style="background:#111;" onclick="setChatBg('none', this)"></div>
+                        <div class="bg-thumb" style="background-image:url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=150');" onclick="setChatBg('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=500', this)"></div>
+                        <div class="bg-thumb" style="background-image:url('https://images.unsplash.com/photo-1557683316-973673baf926?w=150');" onclick="setChatBg('https://images.unsplash.com/photo-1557683316-973673baf926?w=500', this)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="import-modal">
+            <div class="import-box">
+                <h3>Import de Conversation</h3>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">Glissez le fichier texte (.txt) issu d'un export WhatsApp.</p>
+                <div class="drop-zone" onclick="document.getElementById('wa-file').click()" ondragover="event.preventDefault()" ondrop="handleFileDrop(event)">
+                    <i class="fa-solid fa-file-import" style="font-size:2rem; margin-bottom:10px; color:#25D366;"></i>
+                    <p id="upload-status-text">Cliquez ou déposez votre fichier _chat.txt</p>
+                </div>
+                <input type="file" id="wa-file" accept=".txt" style="display:none;" onchange="handleFileSelect(this)">
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button style="padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="toggleModal('import-modal', false)">Fermer</button>
+                </div>
+            </div>
+        </div>
+
+                <div class="context-menu" id="ctx-menu">
+            <div class="context-item" onclick="initiateReply()"><i class="fa-solid fa-reply"></i> Répondre</div>
+            <div class="context-item translate-btn" onclick="translateSelectedMessage()"><i class="fa-solid fa-language"></i> Traduire</div>
+            <div class="context-item" style="border-top: 1px solid var(--border-color); margin-top: 5px;" onclick="showStyleMenu()"><i class="fa-solid fa-palette"></i> Changer le style de bulle ▶</div>
+            <div class="context-item" style="color:#ed4956;" onclick="deleteSelectedMessage()"><i class="fa-solid fa-trash"></i> Supprimer</div>
+        </div>
+
+        <!-- Sous-menu des styles de bulle (en dehors du menu principal) -->
+        <div class="context-menu" id="style-submenu">
+            <div class="context-item" onclick="applyStyleToMessage('bicolor')"><i class="fa-solid fa-fill-drip"></i> Bicolore</div>
+            <div class="context-item" onclick="applyStyleToMessage('dark-passion')"><i class="fa-solid fa-fire-flame-curved"></i> Rouge et Noir</div>
+            <div class="context-item" onclick="applyStyleToMessage('grid-style')"><i class="fa-solid fa-table"></i> Style Tableau</div>
+            <div class="context-item" onclick="applyStyleToMessage('rainbow')"><i class="fa-solid fa-rainbow"></i> Arc-en-ciel</div>
+            <div class="context-item" onclick="applyStyleToMessage('neon')"><i class="fa-regular fa-lightbulb"></i> Néon Glow</div>
+            <div class="context-item" onclick="applyStyleToMessage('wood')"><i class="fa-solid fa-tree"></i> Style Bois</div>
+            <div class="context-item" onclick="applyStyleToMessage('code-style')"><i class="fa-solid fa-code"></i> Style Code</div>
+            <div class="context-item" onclick="applyStyleToMessage('comics')"><i class="fa-solid fa-face-laugh-beam"></i> Style Comics</div>
+            <div class="context-item" onclick="applyStyleToMessage('watercolor')"><i class="fa-solid fa-droplet"></i> Aquarelle</div>
+            <div class="context-item" onclick="applyStyleToMessage('retro')"><i class="fa-solid fa-gamepad"></i> Style Retro</div>
+            <div class="context-item" style="border-top: 1px solid var(--border-color);" onclick="removeStyleFromMessage()"><i class="fa-solid fa-trash-can"></i> Supprimer le style</div>
+        </div>
+
+<!-- Sous-menu des styles de bulle -->
+<div class="context-menu" id="style-submenu" style="left: 150px;">
+    <div class="context-item" onclick="applyStyleToMessage('bicolor')"><i class="fa-solid fa-fill-drip"></i> Bicolore</div>
+    <div class="context-item" onclick="applyStyleToMessage('dark-passion')"><i class="fa-solid fa-fire-flame-curved"></i> Rouge et Noir</div>
+    <div class="context-item" onclick="applyStyleToMessage('grid-style')"><i class="fa-solid fa-table"></i> Style Tableau</div>
+    <div class="context-item" onclick="applyStyleToMessage('rainbow')"><i class="fa-solid fa-rainbow"></i> Arc-en-ciel</div>
+    <div class="context-item" onclick="applyStyleToMessage('neon')"><i class="fa-regular fa-lightbulb"></i> Néon Glow</div>
+    <div class="context-item" onclick="applyStyleToMessage('wood')"><i class="fa-solid fa-tree"></i> Style Bois</div>
+    <div class="context-item" onclick="applyStyleToMessage('code-style')"><i class="fa-solid fa-code"></i> Style Code</div>
+    <div class="context-item" onclick="applyStyleToMessage('comics')"><i class="fa-solid fa-face-laugh-beam"></i> Style Comics</div>
+    <div class="context-item" onclick="applyStyleToMessage('watercolor')"><i class="fa-solid fa-droplet"></i> Aquarelle</div>
+    <div class="context-item" onclick="applyStyleToMessage('retro')"><i class="fa-solid fa-gamepad"></i> Style Retro</div>
+    <div class="context-item" style="border-top: 1px solid var(--border-color);" onclick="removeStyleFromMessage()"><i class="fa-solid fa-trash-can"></i> Supprimer le style</div>
+</div>
+
+        <div class="reaction-dock" id="react-dock">
+            <span onclick="applyReaction('❤️')">❤️</span>
+            <span onclick="applyReaction('😂')">😂</span>
+            <span onclick="applyReaction('😮')">😮</span>
+            <span onclick="applyReaction('😢')">😢</span>
+            <span onclick="applyReaction('🔥')">🔥</span>
+            <span onclick="applyReaction('👍')">👍</span>
+        </div>
+
+    </div>
+
+    <script>
+        // CONFIGURATION FIREBASE DONNÉE
+        const firebaseConfig = {
+            apiKey: "AIzaSyDGC2LQYeSrlb6MRwtLlQGDzz-yJHtKf8c",
+            authDomain: "messagerie-65abc.firebaseapp.com",
+            projectId: "messagerie-65abc",
+            storageBucket: "messagerie-65abc.firebasestorage.app",
+            messagingSenderId: "363641716532",
+            appId: "1:363641716532:web:d16bd3b4eaf4abf4e8ef61"
+        };
+        
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const chatId = "chat_ida_aidara";
+
+        // ÉTAT DE L'APPLICATION
+        let currentUser = null; 
+        let targetUser = null;  
+        let unsubscribeMessages = null;
+        let unsubscribeTyping = null;
+        let typingTimeout = null;
+        let selectedMessageId = null;
+        let replyToId = null;
+        let isEphemeral = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+              let blurModeActive = false;
+        let pressTimer = null;
+        let currentBlurMessage = null;
+      
+              let liveModeActive = false;
+        let liveTypingTimeout = null;
+        let currentLiveText = "";
+        let liveUpdateTimeout = null;
+              // ========== TABLEAU DE DESSIN CANVAS ==========
+        let canvas = null;
+        let ctx = null;
+        let drawing = false;
+        let currentColor = '#000000';
+        let currentBrushSize = 10;
+        let isDrawMode = true;
+        let canvasEmojis = [];
+              let flashInterval = null;
+        let isVibrating = false;
+              let batteryInterval = null;
+        let currentBatteryLevel = null;
+        let isCharging = false;
+              let currentMood = { emoji: '😊', label: 'Heureux' };  // Statut par défaut
+        let moodUpdateTimeout = null;
+              let ephemeralAudioMode = false;  // Mode audio éphémère activé
+              let codeModeActive = false;  // Mode codé activé pour le prochain message
+        let pendingMessageId = null;  // Message en attente de déverrouillage
+        const SECRET_PIN = "0507";  // Code PIN secret
+
+        // INITIALISATION DU THÈME ET DES PRÉFÉRENCES
+        if(localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        if(localStorage.getItem('bubbleColor')) document.documentElement.style.setProperty('--bubble-sent', localStorage.getItem('bubbleColor'));
+
+        // SÉLECTION DU COMPTE UTILISATEUR
+               function selectUser(userKey) {
+            currentUser = userKey === 'ida' ? { id: 'ida', name: 'IDA', full: 'Ida' } : { id: 'aidara', name: 'AIDARA', full: 'Aidara' };
+            targetUser = userKey === 'ida' ? { id: 'aidara', name: 'AIDARA', full: 'Aidara' } : { id: 'ida', name: 'IDA', full: 'Ida' };
+
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('header-av').innerText = targetUser.name.substring(0,3);
+            document.getElementById('header-av').style.background = userKey === 'ida' ? 'linear-gradient(45deg, #0076ff, #00ffaa)' : 'linear-gradient(45deg, #ff007f, #ff7300)';
+            document.getElementById('header-display-name').innerText = targetUser.full;
+
+            // S'assurer que les 3 points sont visibles au départ (champ vide)
+            const translateBtn = document.getElementById('translate-menu-btn');
+            if (translateBtn) translateBtn.style.display = 'flex';
+          
+                        listenToMessages();
+            listenToTyping();
+            listenToUserMood();  // Écouter le statut de l'autre utilisateur
+            listenToOtherUserBattery();  // Écouter la batterie de l'autre
+                 listenForFlashSignals(); 
+            saveDefaultMood();   // Sauvegarder son propre statut
+            getBatteryLevel();    // Démarrer la surveillance de sa propre batterie  // Sauvegarder son propre statut
+        }
+
+                       function logout() {
+            if(unsubscribeMessages) unsubscribeMessages();
+            if(unsubscribeTyping) unsubscribeTyping();
+            stopBatteryMonitoring();
+            stopFlashVibration();
+            document.getElementById('login-screen').style.display = 'flex';
+        }
+
+      // Nettoie le HTML pour éviter les scripts malveillants mais garde le formatage
+function cleanHTML(str) {
+    // Supprime les balises script
+    str = str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    // Supprime les attributs onclick, onerror, etc.
+    str = str.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+    return str;
+}
+        // ÉCOUTE DES MESSAGES EN TEMPS RÉEL (FIRESTORE)
+      function listenToMessages() {
+    unsubscribeMessages = db.collection('chats').doc(chatId).collection('messages')
+        .orderBy('timestamp', 'asc')
+        .limitToLast(60)
+        .onSnapshot(snapshot => {
+            const msgArea = document.getElementById('msg-area');
+            msgArea.innerHTML = '';
+            let lastDateStr = "";
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const msgId = doc.id;
+
+                if (data.isEphemeral && data.readBy && data.readBy.includes(targetUser.id) && data.readBy.includes(currentUser.id)) {
+                    return; 
+                }
+
+                if (data.senderId !== currentUser.id && (!data.readBy || !data.readBy.includes(currentUser.id))) {
+                    db.collection('chats').doc(chatId).collection('messages').doc(msgId).update({
+                        readBy: firebase.firestore.FieldValue.arrayUnion(currentUser.id),
+                        status: "read"
+                    });
+                }
+
+                if(data.timestamp) {
+                    const dateObj = data.timestamp.toDate();
+                    const dateStr = dateObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                    if(dateStr !== lastDateStr) {
+                        const sep = document.createElement('div');
+                        sep.className = 'date-separator';
+                        sep.innerText = dateStr;
+                        msgArea.appendChild(sep);
+                        lastDateStr = dateStr;
+                    }
+                }
+
+                const row = document.createElement('div');
+                row.className = `message-row ${data.senderId === currentUser.id ? 'sent' : 'received'}`;
+                row.setAttribute('data-id', msgId);
+
+                                const isGiant = isOnlyEmojis(data.text);
+                // Appliquer le style personnalisé UNIQUEMENT pour les messages envoyés
+                let customStyle = '';
+                if (data.senderId === currentUser.id && data.bubbleStyle) {
+                    customStyle = data.bubbleStyle;
+                }
+                
+                // Ajouter la classe 'coded' et le badge cadenas si le message est codé
+                let codedClass = '';
+                let lockBadge = '';
+                if (data.isCoded === true) {
+                    codedClass = 'coded';
+                    lockBadge = `<div class="locked-badge" onclick="event.stopPropagation(); showPinModal('${msgId}')">🔒</div>`;
+                }
+                
+                let bubbleHtml = `<div class="message-bubble ${isGiant ? 'giant-emoji' : ''} ${customStyle} ${codedClass}" oncontextmenu="handleContextMenu(event, '${msgId}')" ondblclick="handleDoubleTap(event, '${msgId}')">${lockBadge}`;
+
+                if (data.replyToText) {
+                    bubbleHtml += `<div class="reply-citation"><b>${data.replyToSender}:</b> ${data.replyToText}</div>`;
+                }
+
+                if (data.type === 'text') {
+                    let displayText = data.text;
+                    
+                    // Vérifier si le message est codé
+                    if (data.isCoded === true) {
+                        // Message codé : afficher le masque et stocker le vrai texte
+                        const originalMessage = data.originalText || data.text;
+                        displayText = `<span class="coded-mask" data-original-text="${escapeHTML(originalMessage)}">${escapeHTML(data.text)}</span>`;
+                        bubbleHtml += displayText;
+                    } else {
+                        // Message normal : appliquer le formatage
+                        displayText = displayText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        displayText = displayText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                        displayText = displayText.replace(/~~(.*?)~~/g, '<del>$1</del>');
+                        displayText = displayText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+                        displayText = displayText.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+                        bubbleHtml += `<span>${displayText}</span>`;
+                    }
+                                } else if (data.type === 'image') {
+                    bubbleHtml += `<img src="${data.mediaUrl}" class="img-msg" onclick="window.open('${data.mediaUrl}')"/>`;
+                } else if (data.type === 'drawing') {
+                    bubbleHtml += `<div style="cursor:pointer;" onclick="window.open('${data.mediaUrl}')">
+                        <img src="${data.mediaUrl}" style="max-width:200px; max-height:200px; border-radius:12px; background:white;">
+                        <div style="font-size:0.7rem; text-align:center; margin-top:4px;">🎨 Dessin</div>
+                    </div>`;
+                } else if (data.type === 'audio') {
+                    // Vérifier si c'est un audio éphémère
+                    if (data.isEphemeralAudio) {
+                        // Ajouter un badge spécial
+                        bubbleHtml = bubbleHtml.replace('</div>', '');
+                        
+                        // Vérifier si l'audio a déjà été écouté par cet utilisateur
+                        const alreadyPlayed = data.playedBy && data.playedBy.includes(currentUser.id);
+                        const isDestroyed = data.destroyed;
+                        
+                        if (isDestroyed) {
+                            bubbleHtml += `<div style="padding:10px; text-align:center; color:#ff4444;">🔇 Audio éphémère supprimé</div>`;
+                        } else {
+                            // Ajouter le badge éphémère
+                            bubbleHtml += `<div class="ephemeral-badge">🎙️ 1 écoute</div>`;
+                            
+                            if (alreadyPlayed) {
+                                // Audio déjà écouté par cet utilisateur
+                                bubbleHtml += `<div class="ephemeral-played" style="padding:8px; text-align:center;">
+                                    <i class="fa-solid fa-head-side-headphones"></i>
+                                    <span style="opacity:0.5;">🔇 Audio écouté (disparaîtra bientôt)</span>
+                                </div>`;
+                            } else {
+                                // Audio pas encore écouté
+                                bubbleHtml += `<div style="padding:5px;">
+                                    <audio controls src="${data.mediaUrl}" id="audio-${msgId}" onplay="handleEphemeralAudioPlay('${msgId}', this)"></audio>
+                                    <small style="font-size:0.7rem; opacity:0.7;">⚠️ Écoute unique - disparaîtra après</small>
+                                </div>`;
+                            }
+                        }
+                        bubbleHtml += `</div>`;
+                    } else {
+                        // Audio normal
+                        bubbleHtml += `<i class="fa-solid fa-volume-high"></i> <audio controls src="${data.mediaUrl}"></audio>`;
+                    }
+                }
+
+                const timeStr = data.timestamp ? data.timestamp.toDate().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'}) : '--:--';
+                const checkMark = data.status === 'read' ? '<span class="status-tick">✓✓</span>' : '<span>✓</span>';
+                bubbleHtml += `<div class="msg-meta">${timeStr} ${data.senderId === currentUser.id ? checkMark : ''}</div>`;
+
+                if(data.reactions && Object.keys(data.reactions).length > 0) {
+                    bubbleHtml += `<div class="applied-reactions">`;
+                    Object.entries(data.reactions).forEach(([user, react]) => { bubbleHtml += `<span>${react}</span>`; });
+                    bubbleHtml += `</div>`;
+                }
+
+                bubbleHtml += `</div>`;
+                row.innerHTML = bubbleHtml;
+                              // Appliquer le mode flou si activé
+                if (blurModeActive) {
+                    const bubble = row.querySelector('.message-bubble');
+                    if (bubble) {
+                        bubble.classList.add('blur-active');
+                        attachBlurEvents(bubble);
+                    }
+                }
+                msgArea.appendChild(row);
+            }); // ← Fin du snapshot.forEach
+
+            // =========================================================================
+            // LE BLOC DES CODES SECRETS EST SÉCURISÉ ICI, JUSTE APRÈS LA BOUCLE DES MESSAGES
+            // =========================================================================
+            if (!snapshot.metadata.hasPendingWrites && snapshot.docs.length > 0) {
+                const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+                const lastMsgData = lastDoc.data();
+                
+                if (lastMsgData.type === 'text' && lastMsgData.text) {
+                    const text = lastMsgData.text.trim();
+                    
+                    if (!lastDoc.metadata.fromCache && !window[`played_${lastDoc.id}`]) {
+                        window[`played_${lastDoc.id}`] = true;
+
+                        // Code 520 : Pluie de cœurs et fleurs massives
+                        if (text.includes('520')) {
+                            const heartsAndFlowers = ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💞','💓','❤️‍🔥','❤️‍🩹','❣️','💕','💖','💘','💝','💟','🌹','🌷','💐','🌺','😍','🥰','😘','🤩'];
+                            triggerMixedBombardment(heartsAndFlowers);
+                        } 
+                        // Code 88 : Bisous et bisous baveux / sensuels
+                        else if (text.includes('88')) {
+                            const kisses = ['😘','😙','💋','🤤','🫦'];
+                            triggerMixedBombardment(kisses);
+                        } 
+                        // Code 99 : Amour et complicité
+                        else if (text.includes('99')) {
+                            const love = ['🥰','😇','😍'];
+                            triggerMixedBombardment(love);
+                        } 
+                        // Reste sur l'ancien comportement si c'est un triple émoji classique (ex: 🔥🔥🔥)
+                        else if (text.length >= 3 && [...new Set(text)].length === 1 && isOnlyEmojis(text)) {
+                            triggerBombardment([...text][0]);
+                        }
+                    }
+                }
+            }
+            // =========================================================================
+
+            // Fait défiler le chat vers le bas pour voir le dernier message
+            msgArea.scrollTop = msgArea.scrollHeight;
+        });
+}
+        
+
+        // ENVOI DE MESSAGES TEXTES
+     function sendTextMessage() {
+    const input = document.getElementById('chat-in');
+    const text = input.value.trim();
+    if(!text) return;
+
+           let finalText = text;
+    let isCoded = codeModeActive;
+    
+    if (codeModeActive) {
+        // Le message est codé - on sauvegarde le vrai texte mais on envoie un masque
+        finalText = generateMask(text.length);
+        codeModeActive = false; // Désactiver après envoi
+    }
+    
+    const msgData = {
+        text: finalText,
+        originalText: isCoded ? text : null,  // Sauvegarder le vrai texte
+        isCoded: isCoded,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "sent",
+        readBy: [currentUser.id],
+        type: "text",
+        isEphemeral: isEphemeral,
+        mediaUrl: null
+    };
+
+    if(replyToId) {
+        const parentRow = document.querySelector(`[data-id="${replyToId}"]`);
+        if(parentRow) {
+            msgData.replyToId = replyToId;
+            msgData.replyToText = parentRow.querySelector('.message-bubble span')?.innerText || "[Média]";
+            msgData.replyToSender = parentRow.classList.contains('sent') ? currentUser.name : targetUser.name;
+        }
+    }
+
+    // On nettoie l'input immédiatement pour le confort visuel
+    input.value = '';
+    cancelReply();
+    toggleSendBtn(false);
+    stopTypingNotify();
+
+    // Envoi à Firebase
+      // Envoi à Firebase
+    db.collection('chats').doc(chatId).collection('messages').add(msgData);
+    
+    // Nettoyer le live typing après envoi
+    clearLiveTyping();
+}
+
+        // SUPPRESSION DE MESSAGE
+        function deleteSelectedMessage() {
+            if(selectedMessageId) {
+                if(confirm("Supprimer ce message définitivement pour tout le monde ?")) {
+                    db.collection('chats').doc(chatId).collection('messages').doc(selectedMessageId).delete();
+                }
+            }
+            hideContextMenus();
+        }
+
+        // GESTION DU TYPE ET DES ÉMOTIONS GEANTES
+        function isOnlyEmojis(str) {
+            if(!str) return false;
+            const emojiRegex = /^[\u{1F300}-\u{1F9FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]+$/u;
+            return emojiRegex.test(str.replace(/\s/g, '')) && str.replace(/\s/g, '').length <= 6;
+        }
+
+        function checkEmojiBombardment(text) {
+            if (text.length >= 3 && [...new Set(text)].length === 1 && isOnlyEmojis(text)) {
+                triggerBombardment([...text][0]);
+            }
+        }
+
+        function triggerBombardment(char) {
+            for (let i = 0; i < 60; i++) {
+                setTimeout(() => {
+                    const e = document.createElement('div');
+                    e.className = 'falling-emoji';
+                    e.innerText = char;
+                    e.style.left = Math.random() * 100 + 'vw';
+                    e.style.top = '-50px';
+                    e.style.fontSize = Math.random() * 30 + 20 + 'px';
+                    e.style.animationDuration = Math.random() * 2 + 2 + 's';
+                    document.body.appendChild(e);
+                    setTimeout(() => e.remove(), 4000);
+                }, i * 50);
+            }
+        }
+function triggerMixedBombardment(emojiList) {
+    for (let i = 0; i < 70; i++) { // 70 émojis pour un effet bien dense
+        setTimeout(() => {
+            const e = document.createElement('div');
+            e.className = 'falling-emoji';
+            
+            // Choisit un émoji au hasard dans la liste reçue
+            const randomEmoji = emojiList[Math.floor(Math.random() * emojiList.length)];
+            e.innerText = randomEmoji;
+            
+            // Dispersion aléatoire sur tout l'écran
+            e.style.left = Math.random() * 100 + 'vw';
+            e.style.top = '-50px';
+            e.style.fontSize = Math.random() * 35 + 20 + 'px'; // Tailles variées (de 20px à 55px)
+            e.style.animationDuration = Math.random() * 2 + 1.5 + 's'; // Vitesses différentes
+            
+            document.body.appendChild(e);
+            setTimeout(() => e.remove(), 3500); // Nettoie l'écran après 3.5 secondes
+        }, i * 40); // Décale légèrement l'apparition pour un effet fluide
+    }
+}
+        // ENREGISTREMENT AUDIO (BLOB)
+        async function toggleRecording() {
+            const micIcon = document.getElementById('mic-btn');
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                                        mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            if (ephemeralAudioMode) {
+                                sendEphemeralAudio(reader.result);
+                            } else {
+                                sendMediaMessage('audio', reader.result);
+                            }
+                        };
+                    };
+
+                    mediaRecorder.start();
+                    micIcon.className = "fa-solid fa-circle-stop";
+                    micIcon.style.color = "#ed4956";
+                    setTimeout(() => { if(mediaRecorder.state === 'recording') toggleRecording(); }, 10000); // Max 10 sec
+                } catch(err) { alert("Accès micro refusé ou non supporté."); }
+            } else {
+                mediaRecorder.stop();
+                micIcon.className = "fa-solid fa-microphone";
+                micIcon.style.color = "var(--text-main)";
+            }
+        }
+
+        // ENVOI D'IMAGES LOCALES (BASE64 STORAGE SIMULÉ COMPATIBLE AVEC TOUTE INSTANCE)
+        function triggerImageUpload() { document.getElementById('img-file').click(); }
+        function uploadImage(input) {
+            if(input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => sendMediaMessage('image', e.target.result);
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function sendMediaMessage(type, base64Data) {
+            db.collection('chats').doc(chatId).collection('messages').add({
+                text: null,
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                status: "sent",
+                readBy: [currentUser.id],
+                type: type,
+                isEphemeral: isEphemeral,
+                mediaUrl: base64Data
+            });
+        }
+
+        // REACTION DOUBLE TAP & MENUS CONTEXTUELS
+        function handleDoubleTap(e, msgId) {
+            e.preventDefault();
+            selectedMessageId = msgId;
+            const dock = document.getElementById('react-dock');
+            dock.style.display = 'flex';
+            dock.style.top = Math.min(e.pageY - 60, window.innerHeight - 100) + 'px';
+            dock.style.left = Math.min(e.pageX - 50, window.innerWidth - 200) + 'px';
+            setTimeout(() => dock.style.display = 'none', 5000);
+        }
+
+        function applyReaction(emoji) {
+            if(selectedMessageId) {
+                const ref = db.collection('chats').doc(chatId).collection('messages').doc(selectedMessageId);
+                ref.update({ [`reactions.${currentUser.id}`]: emoji });
+            }
+            document.getElementById('react-dock').style.display = 'none';
+        }
+
+        function handleContextMenu(e, msgId) {
+            e.preventDefault();
+            selectedMessageId = msgId;
+            const menu = document.getElementById('ctx-menu');
+            menu.style.display = 'block';
+            menu.style.top = Math.min(e.pageY, window.innerHeight - 100) + 'px';
+            menu.style.left = Math.min(e.pageX, window.innerWidth - 150) + 'px';
+            document.addEventListener('click', hideContextMenus);
+        }
+
+       function hideContextMenus() {
+    document.getElementById('ctx-menu').style.display = 'none';
+    closeStyleMenu();  // Ferme aussi le sous-menu des styles
+    document.removeEventListener('click', hideContextMenus);
+}
+
+        // GESTION DU SYSTÈME DE RÉPONSE
+        function initiateReply() {
+            replyToId = selectedMessageId;
+            const parentRow = document.querySelector(`[data-id="${replyToId}"]`);
+            if(parentRow) {
+                const snippet = parentRow.querySelector('.message-bubble span')?.innerText || "[Média]";
+                document.getElementById('reply-preview-text').innerText = `Répondre à : ${snippet}`;
+                document.getElementById('reply-preview').style.display = 'flex';
+            }
+        }
+        function cancelReply() { replyToId = null; document.getElementById('reply-preview').style.display = 'none'; }
+
+        // SÉCURISATION BASIQUE ET DES INTERFACES INTERACTIVES
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        }
+       function togglePanel(panelId) {
+    const panel = document.getElementById(panelId);
+    const currentDisplay = panel.style.display;
+    
+    // Ferme tous les autres panneaux d'abord
+    document.querySelectorAll('.floating-panel').forEach(p => p.style.display = 'none');
+    
+    // Si le panneau cliqué était déjà ouvert, on le ferme. Sinon, on l'ouvre.
+    if (currentDisplay === 'block') {
+        panel.style.display = 'none';
+    } else {
+        panel.style.display = 'block';
+    }
+}
+        function toggleModal(id, open) { document.getElementById(id).style.display = open ? 'flex' : 'none'; }
+function insertEmoji(emoji) { 
+    document.getElementById('chat-in').value += emoji; 
+    handleTyping(); 
+    
+    // On a supprimé la ligne qui fermait le panneau !
+    // Maintenant, le dock reste ouvert tant que tu ne recliques pas sur le smiley.
+}
+        // DETECTION DE FRAISSEMENT (TYPING INDICATOR VIA FIRESTORE)
+               // DETECTION DE FRAISSEMENT (TYPING INDICATOR VIA FIRESTORE)
+        function handleTyping() {
+            const input = document.getElementById('chat-in');
+            const hasText = input.value.trim().length > 0;
+            toggleSendBtn(hasText);
+            
+            // Gérer l'affichage des 3 points
+            const translateBtn = document.getElementById('translate-menu-btn');
+            if (hasText) {
+                translateBtn.style.display = 'none';
+                const dropdown = document.getElementById('translate-dropdown');
+                dropdown.classList.remove('show');
+            } else {
+                translateBtn.style.display = 'flex';
+            }
+
+            // Typing indicator classique
+            db.collection('chats').doc(chatId).collection('typing').doc(currentUser.id).set({ isTyping: true });
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(stopTypingNotify, 2000);
+            
+            // Envoyer la mise à jour live (TOUJOURS, même si personne n'a activé le mode live)
+            sendLiveTypingUpdate();
+        }
+
+        function stopTypingNotify() {
+            if(currentUser) db.collection('chats').doc(chatId).collection('typing').doc(currentUser.id).set({ isTyping: false });
+        }
+
+        function listenToTyping() {
+            unsubscribeTyping = db.collection('chats').doc(chatId).collection('typing').doc(targetUser.id)
+                .onSnapshot(doc => {
+                    if(doc.exists && doc.data().isTyping) {
+                        document.getElementById('typing-txt').innerText = `${targetUser.name} écrit...`;
+                        document.getElementById('typing-ind').style.display = 'flex';
+                    } else {
+                        document.getElementById('typing-ind').style.display = 'none';
+                    }
+                });
+       
+        }
+
+        function toggleSendBtn(show) {
+            document.getElementById('send-btn').style.display = show ? 'block' : 'none';
+            document.getElementById('in-actions').style.display = show ? 'none' : 'flex';
+        }
+
+        // SWIPE ET MODE ÉPHÉMÈRE
+        let touchStartY = 0;
+        function handleSwipeDetect(el) {
+            if(el.scrollTop === 0) {
+                // Déclencheur au défilement inversé haut simulé par un bouton ou clic, ou par double clic d'entête
+            }
+        }
+        // Activation simple via raccourci visuel en-tête ou clic d'état
+        document.getElementById('header-status-text').style.cursor = 'pointer';
+        document.getElementById('header-status-text').onclick = () => {
+            isEphemeral = !isEphemeral;
+            document.getElementById('eph-overlay').style.display = isEphemeral ? 'flex' : 'none';
+            document.getElementById('header-status-text').innerText = isEphemeral ? 'Mode Éphémère' : 'En ligne';
+            document.getElementById('header-status-text').style.color = isEphemeral ? '#962fbf' : 'var(--text-muted)';
+        };
+
+        // INTEGRATION DES PARAMÈTRES
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('theme', target);
+        }
+        function setBubbleColor(color, dot) {
+            document.documentElement.style.setProperty('--bubble-sent', color);
+            localStorage.setItem('bubbleColor', color);
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            dot.classList.add('active');
+        }
+        function setChatBg(url, thumb) {
+            document.getElementById('msg-area').style.backgroundImage = url === 'none' ? 'none' : `url('${url}')`;
+            document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
+            thumb.classList.add('active');
+        }
+
+        // PARSER D'IMPORTATION DE FICHIER TEXTE WHATSAPP (_chat.txt)
+        function handleFileSelect(input) { if(input.files && input.files[0]) parseWhatsAppFile(input.files[0]); }
+        function handleFileDrop(e) { e.preventDefault(); if(e.dataTransfer.files && e.dataTransfer.files[0]) parseWhatsAppFile(e.dataTransfer.files[0]); }
+        
+        function parseWhatsAppFile(file) {
+            const reader = new FileReader();
+            document.getElementById('upload-status-text').innerText = "Traitement en cours...";
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n');
+                let count = 0;
+                
+                // Regex standard WhatsApp: [dd/mm/yyyy hh:mm:ss] Nom: Message ou dd/mm/yyyy hh:mm - Nom: Message
+                const waRegex = /^\[?(\d{2}\/\d{2}\/\d{4}),?\s(\d{2}:\d{2})(?::\d{2})?\]?\s-\s([^:]+):\s(.*)$/;
+                const waRegexAlt = /^\[?(\d{2}\/\d{2}\/\d{2}),?\s(\d{2}:\d{2})(?::\d{2})?\]?\s([^:]+):\s(.*)$/;
+
+                lines.forEach(line => {
+                    let match = line.match(waRegex) || line.match(waRegexAlt);
+                    if(match) {
+                        let [_, date, time, sender, text] = match;
+                        let guessedSender = sender.toLowerCase().includes('ida') ? 'ida' : 'aidara';
+                        let senderName = guessedSender === 'ida' ? 'IDA' : 'AIDARA';
+
+                        db.collection('chats').doc(chatId).collection('messages').add({
+                            text: text.trim(),
+                            senderId: guessedSender,
+                            senderName: senderName,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp(), // Aligné sur flux
+                            status: "read",
+                            readBy: ['ida', 'aidara'],
+                            type: "text",
+                            isEphemeral: false,
+                            mediaUrl: null
+                        });
+                        count++;
+                    }
+                });
+
+                document.getElementById('upload-status-text').innerText = `Succès ! ${count} messages importés.`;
+                setTimeout(() => toggleModal('import-modal', false), 2000);
+            };
+            reader.readAsText(file);
+        }
+
+        // Ecoute de la touche Entrée pour l'envoi rapide
+        document.getElementById('chat-in').addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') sendTextMessage();
+        });
+      
+        // VARIABLES POUR LA MISE EN FORME
+        let selectedTextRange = null;
+        let currentFormat = { bold: false, italic: false, strike: false, color: 'black', font: "'Inter', sans-serif", size: '16px' };
+
+        // Détecter la sélection de texte dans le champ
+        document.getElementById('chat-in').addEventListener('mouseup', showToolbarOnSelection);
+        document.getElementById('chat-in').addEventListener('keyup', showToolbarOnSelection);
+        document.getElementById('chat-in').addEventListener('select', showToolbarOnSelection);
+
+        function showToolbarOnSelection() {
+            const input = document.getElementById('chat-in');
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            
+            if (start !== end) {
+                // Il y a du texte sélectionné
+                selectedTextRange = { start: start, end: end };
+                const toolbar = document.getElementById('format-toolbar');
+                toolbar.style.display = 'flex';
+                
+                // Positionner la barre au-dessus du champ
+                const inputRect = input.getBoundingClientRect();
+                toolbar.style.bottom = 'auto';
+                toolbar.style.top = (inputRect.top - 60) + 'px';
+                toolbar.style.left = '15px';
+                toolbar.style.right = '15px';
+            } else {
+                // Pas de sélection, cacher la barre après 1 seconde
+                setTimeout(() => {
+                    if (document.getElementById('chat-in').selectionStart === document.getElementById('chat-in').selectionEnd) {
+                        document.getElementById('format-toolbar').style.display = 'none';
+                        selectedTextRange = null;
+                    }
+                }, 500);
+            }
+        }
+
+        function applyFormat(type, value = null) {
+            if (!selectedTextRange) return;
+            
+            const input = document.getElementById('chat-in');
+            const text = input.value;
+            const start = selectedTextRange.start;
+            const end = selectedTextRange.end;
+            const selectedText = text.substring(start, end);
+            
+            if (!selectedText) return;
+            
+            let wrappedText = selectedText;
+            let formatTag = '';
+            
+            switch(type) {
+                case 'bold':
+                    formatTag = '**';
+                    wrappedText = `**${selectedText}**`;
+                    document.getElementById('btn-bold').classList.toggle('active');
+                    break;
+                case 'italic':
+                    formatTag = '*';
+                    wrappedText = `*${selectedText}*`;
+                    document.getElementById('btn-italic').classList.toggle('active');
+                    break;
+                case 'strike':
+                    formatTag = '~~';
+                    wrappedText = `~~${selectedText}~~`;
+                    document.getElementById('btn-strike').classList.toggle('active');
+                    break;
+                case 'color':
+                    wrappedText = `<span style="color: ${value};">${selectedText}</span>`;
+                    break;
+                case 'font':
+                    wrappedText = `<span style="font-family: ${value};">${selectedText}</span>`;
+                    break;
+                case 'size':
+                    wrappedText = `<span style="font-size: ${value};">${selectedText}</span>`;
+                    break;
+            }
+            
+            // Remplacer le texte sélectionné
+            const newText = text.substring(0, start) + wrappedText + text.substring(end);
+            input.value = newText;
+            
+            // Re-sélectionner le texte formaté
+            const newEnd = start + wrappedText.length;
+            input.setSelectionRange(start, newEnd);
+            selectedTextRange = { start: start, end: newEnd };
+            
+            input.focus();
+            handleTyping();
+        }
+        
+        // Cacher la barre quand on clique ailleurs
+        document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('translate-dropdown');
+    const btn = document.getElementById('translate-menu-btn');
+    if (dropdown && !dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+        dropdown.classList.remove('show');
+    }
+    
+    // Fermer le panneau des statuts si on clique ailleurs
+    const moodPanel = document.getElementById('mood-panel');
+    const moodBtn = document.getElementById('mood-status');
+    if (moodPanel && moodPanel.style.display === 'flex' && !moodPanel.contains(e.target) && e.target !== moodBtn && !moodBtn?.contains(e.target)) {
+        moodPanel.style.display = 'none';
+    }
+});
+      
+      // ========== TRADUCTION DU TEXTE SAISI ==========
+
+// Fonction pour traduire un texte vers une langue cible (API MyMemory)
+async function translateTextToLanguage(text, targetLang) {
+    if (!text || text.trim() === '') {
+        alert("Écris d'abord un message à traduire !");
+        return null;
+    }
+    
+    // Mapping des codes de langue pour l'API
+    const langMap = {
+        'en': 'en|fr',      // anglais
+        'ar': 'ar|fr',      // arabe
+        'es': 'es|fr',      // espagnol
+        'ja': 'ja|fr'       // japonais
+    };
+    
+    const langPair = langMap[targetLang] || 'en|fr';
+    
+    try {
+        // Afficher une indication dans le champ
+        const input = document.getElementById('chat-in');
+        const originalPlaceholder = input.placeholder;
+        input.placeholder = "🔄 Traduction en cours...";
+        
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        input.placeholder = originalPlaceholder;
+        
+        if (data && data.responseData && data.responseData.translatedText) {
+            let translated = data.responseData.translatedText;
+            translated = translated.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            return translated;
+        }
+        return null;
+    } catch (error) {
+        console.error("Erreur de traduction:", error);
+        alert("Erreur lors de la traduction. Vérifie ta connexion internet.");
+        return null;
+    }
+}
+
+// Ouvrir/Fermer le menu de traduction
+function toggleTranslateMenu(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('translate-dropdown');
+    dropdown.classList.toggle('show');
+}
+
+// Traduire le texte du champ de saisie et le remplacer
+async function translateInputText(targetLang) {
+    const input = document.getElementById('chat-in');
+    const originalText = input.value.trim();
+    
+    if (!originalText) {
+        alert("📝 Écris d'abord un message dans le champ !");
+        closeTranslateMenu();
+        return;
+    }
+    
+    // Langues pour l'affichage du message de confirmation
+    const langNames = {
+        'en': 'Anglais 🇬🇧',
+        'ar': 'Arabe 🇸🇦',
+        'es': 'Espagnol 🇪🇸',
+        'ja': 'Japonais 🇯🇵'
+    };
+    
+    // Traduire le texte
+    const translatedText = await translateTextToLanguage(originalText, targetLang);
+    
+    if (translatedText && translatedText !== originalText) {
+        input.value = translatedText;
+        closeTranslateMenu();
+        
+        // Afficher une petite notification
+        showTempNotification(`✅ Traduit en ${langNames[targetLang]}`);
+        
+        // Déclencher l'événement typing pour la barre d'envoi
+        handleTyping();
+    } else if (translatedText === originalText) {
+        showTempNotification(`⚠️ Le texte est déjà en ${langNames[targetLang]} ou n'a pas pu être traduit`);
+    } else {
+        showTempNotification("❌ Erreur de traduction, réessaie");
+    }
+}
+
+// Fermer le menu de traduction
+function closeTranslateMenu() {
+    const dropdown = document.getElementById('translate-dropdown');
+    dropdown.classList.remove('show');
+}
+
+// Afficher une notification temporaire
+function showTempNotification(message) {
+    // Créer une notification flottante
+    const notif = document.createElement('div');
+    notif.textContent = message;
+    notif.style.position = 'fixed';
+    notif.style.bottom = '100px';
+    notif.style.right = '20px';
+    notif.style.background = '#0095f6';
+    notif.style.color = 'white';
+    notif.style.padding = '8px 16px';
+    notif.style.borderRadius = '20px';
+    notif.style.fontSize = '0.85rem';
+    notif.style.zIndex = '1000';
+    notif.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    notif.style.animation = 'fadeIn 0.2s ease-out';
+    
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => notif.remove(), 300);
+    }, 2000);
+}
+
+// Fermer le menu quand on clique ailleurs
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('translate-dropdown');
+    const btn = document.getElementById('translate-menu-btn');
+    if (dropdown && !dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+      
+      // ========== GESTION DES STYLES DE BULLES ==========
+// ========== GESTION DES STYLES DE BULLES ==========
+
+let styleMenuOpen = false;
+
+function showStyleMenu() {
+    // Vérifier que le message sélectionné appartient à l'utilisateur
+    const messageRow = document.querySelector(`[data-id="${selectedMessageId}"]`);
+    const isSentMessage = messageRow && messageRow.classList.contains('sent');
+    
+    if (!isSentMessage) {
+        showTempNotification("⚠️ Tu ne peux changer que le style de TES messages !");
+        document.getElementById('ctx-menu').style.display = 'none';
+        return;
+    }
+    
+    // Si le sous-menu est déjà ouvert, on le ferme d'abord
+    if (styleMenuOpen) {
+        closeStyleMenu();
+        return;
+    }
+    
+    const mainMenu = document.getElementById('ctx-menu');
+    const styleMenu = document.getElementById('style-submenu');
+    
+    // Récupérer la position du menu principal
+    const rect = mainMenu.getBoundingClientRect();
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // Largeur approximative du sous-menu
+    const submenuWidth = 200;
+    const submenuHeight = 400;
+    
+    // Position horizontale
+    let leftPos = rect.right + 5;
+    if (leftPos + submenuWidth > windowWidth) {
+        leftPos = rect.left - submenuWidth - 5;
+    }
+    
+    // Position verticale
+    let topPos = rect.top;
+    if (topPos + submenuHeight > windowHeight) {
+        topPos = windowHeight - submenuHeight - 10;
+    }
+    if (topPos < 10) {
+        topPos = 10;
+    }
+    
+    // Appliquer les positions
+    styleMenu.style.position = 'fixed';
+    styleMenu.style.top = topPos + 'px';
+    styleMenu.style.left = leftPos + 'px';
+    styleMenu.style.display = 'block';
+    styleMenuOpen = true;
+    
+    // Cacher le menu principal
+    mainMenu.style.display = 'none';
+    
+    // Fermer le sous-menu quand on clique ailleurs
+    setTimeout(() => {
+        document.addEventListener('click', function closeSubmenu(e) {
+            if (styleMenuOpen && !styleMenu.contains(e.target)) {
+                closeStyleMenu();
+                document.removeEventListener('click', closeSubmenu);
+            }
+        });
+    }, 100);
+}
+
+function closeStyleMenu() {
+    const styleMenu = document.getElementById('style-submenu');
+    styleMenu.style.display = 'none';
+    styleMenuOpen = false;
+}
+
+// Appliquer un style à un message spécifique
+async function applyStyleToMessage(styleName) {
+    if (!selectedMessageId) return;
+    
+    const styleNames = {
+        'bicolor': 'Bicolore',
+        'dark-passion': 'Rouge et Noir',
+        'grid-style': 'Style Tableau',
+        'rainbow': 'Arc-en-ciel',
+        'neon': 'Néon Glow',
+        'wood': 'Style Bois',
+        'code-style': 'Style Code',
+        'comics': 'Style Comics',
+        'watercolor': 'Aquarelle',
+        'retro': 'Style Retro'
+    };
+    
+    // Vérifier que le message appartient bien à l'utilisateur actuel
+    const messageRow = document.querySelector(`[data-id="${selectedMessageId}"]`);
+    const isSentMessage = messageRow && messageRow.classList.contains('sent');
+    
+    if (!isSentMessage) {
+        showTempNotification("❌ Tu ne peux changer que le style de TES propres messages !");
+        closeStyleMenu();
+        return;
+    }
+    
+    // Sauvegarder le style dans Firestore
+    const msgRef = db.collection('chats').doc(chatId).collection('messages').doc(selectedMessageId);
+    await msgRef.update({
+        bubbleStyle: styleName,
+        bubbleStyleName: styleNames[styleName]
+    });
+    
+    // Appliquer le style visuellement immédiatement
+    if (messageRow) {
+        const bubble = messageRow.querySelector('.message-bubble');
+        if (bubble) {
+            // Liste de tous les styles possibles
+            const allStyles = ['bicolor', 'dark-passion', 'grid-style', 'rainbow', 'neon', 'wood', 'code-style', 'comics', 'watercolor', 'retro'];
+            // Enlever tous les styles précédents
+            allStyles.forEach(style => bubble.classList.remove(style));
+            // Ajouter le nouveau style
+            bubble.classList.add(styleName);
+        }
+    }
+    
+    // Fermer les menus
+    closeStyleMenu();
+    document.getElementById('ctx-menu').style.display = 'none';
+    
+    // Afficher une confirmation
+    showTempNotification(`✨ Style "${styleNames[styleName]}" appliqué à ton message !`);
+}
+
+// Supprimer le style d'un message
+async function removeStyleFromMessage() {
+    if (!selectedMessageId) return;
+    
+    // Vérifier que le message appartient bien à l'utilisateur
+    const messageRow = document.querySelector(`[data-id="${selectedMessageId}"]`);
+    const isSentMessage = messageRow && messageRow.classList.contains('sent');
+    
+    if (!isSentMessage) {
+        showTempNotification("❌ Tu ne peux supprimer le style que de TES propres messages !");
+        closeStyleMenu();
+        return;
+    }
+    
+    const msgRef = db.collection('chats').doc(chatId).collection('messages').doc(selectedMessageId);
+    await msgRef.update({
+        bubbleStyle: null,
+        bubbleStyleName: null
+    });
+    
+    // Enlever le style visuellement
+    if (messageRow) {
+        const bubble = messageRow.querySelector('.message-bubble');
+        if (bubble) {
+            const allStyles = ['bicolor', 'dark-passion', 'grid-style', 'rainbow', 'neon', 'wood', 'code-style', 'comics', 'watercolor', 'retro'];
+            allStyles.forEach(style => bubble.classList.remove(style));
+        }
+    }
+    
+    // Fermer les menus
+    closeStyleMenu();
+    document.getElementById('ctx-menu').style.display = 'none';
+    showTempNotification(`🗑️ Style supprimé de ton message`);
+}
+
+// Traduire le message sélectionné (menu contextuel)
+async function translateSelectedMessage() {
+    if (!selectedMessageId) return;
+    
+    const messageRow = document.querySelector(`[data-id="${selectedMessageId}"]`);
+    if (!messageRow) return;
+    
+    const messageBubble = messageRow.querySelector('.message-bubble span');
+    if (!messageBubble) return;
+    
+    const originalText = messageBubble.innerText;
+    
+    // Détecter la langue source
+    function detectLang(text) {
+        if (/[éèêëàâçîïôûùüÿ]/i.test(text)) return 'fr';
+        if (/[áéíóúñ¿¡]/i.test(text)) return 'es';
+        if (/[äöüß]/i.test(text)) return 'de';
+        return 'en';
+    }
+    
+    const sourceLang = detectLang(originalText);
+    const targetLang = sourceLang === 'fr' ? 'en' : 'fr';
+    const langPair = `${sourceLang}|${targetLang}`;
+    
+    // Afficher une indication
+    const originalHTML = messageBubble.innerHTML;
+    messageBubble.innerHTML = '<span style="opacity:0.6;">🔄 Traduction...</span>';
+    
+    try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(originalText)}&langpair=${langPair}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data && data.responseData && data.responseData.translatedText) {
+            let translated = data.responseData.translatedText;
+            translated = translated.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            messageBubble.setAttribute('data-original', originalText);
+            messageBubble.innerHTML = `${translated} <span style="font-size:0.65rem; opacity:0.5;" onclick="event.stopPropagation(); restoreOriginalMessage(this.parentElement)">[Original]</span>`;
+        } else {
+            messageBubble.innerHTML = originalHTML;
+            showTempNotification("❌ Traduction échouée");
+        }
+    } catch (error) {
+        messageBubble.innerHTML = originalHTML;
+        showTempNotification("❌ Erreur de traduction");
+    }
+    
+    hideContextMenus();
+}
+
+// Restaurer le message original après traduction
+function restoreOriginalMessage(element) {
+    const original = element.getAttribute('data-original');
+    if (original) {
+        element.innerHTML = original;
+        element.removeAttribute('data-original');
+    }
+}
+      
+              // ========== MODE MESSAGE CODÉ ==========
+        
+        function toggleCodeMode() {
+            codeModeActive = !codeModeActive;
+            closeTranslateMenu();
+            
+            if (codeModeActive) {
+                showTempNotification("🔒 ACTIVÉ");
+                // Changer l'apparence du bouton pour indiquer que c'est activé
+                const codeOption = document.querySelector('#translate-dropdown .translate-option:last-child');
+                if (codeOption) {
+                    codeOption.style.background = "#a800ff20";
+                }
+            } else {
+                showTempNotification("🔓 DÉSACTIVÉ");
+                const codeOption = document.querySelector('#translate-dropdown .translate-option:last-child');
+                if (codeOption) {
+                    codeOption.style.background = "";
+                }
+            }
+        }
+        
+        // Générer un masque aléatoire de caractères spéciaux
+        function generateMask(length) {
+            const chars = ['#', '@', '×', '/', '+', '-', '•', '★', '◆', '▪', '▫', '●', '○', '◊', '♠', '♣', '♥', '♦'];
+            let mask = '';
+            for (let i = 0; i < length; i++) {
+                mask += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return mask;
+        }
+        
+        // Afficher le modal PIN
+        function showPinModal(messageId) {
+            pendingMessageId = messageId;
+            const modal = document.getElementById('pin-modal');
+            const input = document.getElementById('pin-input');
+            modal.style.display = 'flex';
+            input.value = '';
+            input.focus();
+        }
+        
+        function closePinModal() {
+            document.getElementById('pin-modal').style.display = 'none';
+            pendingMessageId = null;
+        }
+        
+        function verifyPin() {
+            const input = document.getElementById('pin-input');
+            const enteredPin = input.value;
+            
+            if (enteredPin === SECRET_PIN) {
+                // Code correct - déverrouiller le message
+                unlockMessage(pendingMessageId);
+                closePinModal();
+            } else {
+                showTempNotification("❌ Code PIN incorrect !");
+                input.value = '';
+                input.focus();
+            }
+        }
+        
+        function unlockMessage(messageId) {
+            if (!messageId) return;
+            
+            const messageRow = document.querySelector(`[data-id="${messageId}"]`);
+            if (!messageRow) return;
+            
+            const bubble = messageRow.querySelector('.message-bubble');
+            const messageSpan = bubble.querySelector('span');
+            const originalText = messageSpan.getAttribute('data-original-text');
+            
+            if (originalText) {
+                // Remplacer le masque par le vrai texte
+                messageSpan.innerHTML = originalText;
+                bubble.classList.remove('coded');
+                
+                // Changer le badge
+                const badge = bubble.querySelector('.locked-badge');
+                if (badge) {
+                    badge.textContent = '🔓';
+                    badge.classList.add('unlocked-badge');
+                }
+                
+                // Marquer comme déverrouillé (mais pas en base de données)
+                messageRow.setAttribute('data-unlocked', 'true');
+            }
+        }
+      
+              // ========== AUDIO ÉPHÉMÈRE ==========
+        
+        function toggleEphemeralAudioMode() {
+            ephemeralAudioMode = !ephemeralAudioMode;
+            closeTranslateMenu();
+            
+            if (ephemeralAudioMode) {
+                showTempNotification("🎙️ Mode Audio Éphémère ACTIVÉ - Enregistrement à écoute unique");
+                // Indiquer visuellement que le mode est activé
+                const micBtn = document.getElementById('mic-btn');
+                micBtn.style.background = "#ff4444";
+                micBtn.style.borderRadius = "50%";
+                micBtn.style.padding = "5px";
+            } else {
+                showTempNotification("🎙️ Mode Audio Éphémère DÉSACTIVÉ");
+                const micBtn = document.getElementById('mic-btn');
+                micBtn.style.background = "";
+                micBtn.style.borderRadius = "";
+                micBtn.style.padding = "";
+            }
+        }
+        
+        // Envoyer un audio éphémère
+        function sendEphemeralAudio(base64Data) {
+            const msgData = {
+                text: null,
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                status: "sent",
+                readBy: [currentUser.id],
+                type: "audio",
+                isEphemeral: isEphemeral,
+                isEphemeralAudio: true,  // Marquer comme audio éphémère
+                mediaUrl: base64Data,
+                playedBy: [],  // Liste des utilisateurs qui ont écouté
+                destroyed: false
+            };
+            
+            db.collection('chats').doc(chatId).collection('messages').add(msgData);
+            
+            // Désactiver le mode après envoi
+            ephemeralAudioMode = false;
+            const micBtn = document.getElementById('mic-btn');
+            micBtn.style.background = "";
+            micBtn.style.borderRadius = "";
+            micBtn.style.padding = "";
+            showTempNotification("🎙️ Audio éphémère envoyé ! Il disparaîtra après écoute");
+        }
+        
+        // Marquer un audio comme écouté et le détruire
+        async function markEphemeralAudioAsPlayed(messageId, audioElement) {
+            const msgRef = db.collection('chats').doc(chatId).collection('messages').doc(messageId);
+            const doc = await msgRef.get();
+            const data = doc.data();
+            
+            if (!data || !data.isEphemeralAudio) return;
+            if (data.destroyed) return;
+            
+            // Vérifier si l'utilisateur actuel a déjà écouté
+            if (data.playedBy && data.playedBy.includes(currentUser.id)) {
+                return;
+            }
+            
+            // Marquer comme écouté par cet utilisateur
+            await msgRef.update({
+                playedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.id)
+            });
+            
+            // Récupérer le document mis à jour
+            const updatedDoc = await msgRef.get();
+            const updatedData = updatedDoc.data();
+            
+            // Si les deux utilisateurs ont écouté, détruire le message
+            if (updatedData.playedBy && updatedData.playedBy.length >= 2) {
+                await msgRef.delete();
+                showTempNotification("🗑️ Audio éphémère supprimé (écouté par les deux)");
+            } else {
+                // Désactiver l'audio pour cet utilisateur
+                if (audioElement) {
+                    audioElement.style.opacity = "0.5";
+                    audioElement.style.filter = "blur(2px)";
+                    audioElement.disabled = true;
+                    const parent = audioElement.closest('.message-bubble');
+                    if (parent) {
+                        parent.classList.add('ephemeral-played');
+                    }
+                }
+                showTempNotification("🔇 Audio éphémère écouté - disparaîtra quand l'autre l'aura écouté");
+            }
+        }
+      
+              // Gérer la lecture d'un audio éphémère
+        async function handleEphemeralAudioPlay(messageId, audioElement) {
+            // Vérifier si déjà écouté
+            const msgRef = db.collection('chats').doc(chatId).collection('messages').doc(messageId);
+            const doc = await msgRef.get();
+            const data = doc.data();
+            
+            if (!data || !data.isEphemeralAudio) return;
+            if (data.destroyed) {
+                audioElement.remove();
+                showTempNotification("🔇 Cet audio a déjà été supprimé");
+                return;
+            }
+            
+            if (data.playedBy && data.playedBy.includes(currentUser.id)) {
+                showTempNotification("🔇 Tu as déjà écouté cet audio éphémère");
+                audioElement.pause();
+                return;
+            }
+            
+            // Écouter la fin de la lecture
+            audioElement.addEventListener('ended', async () => {
+                await markEphemeralAudioAsPlayed(messageId, audioElement);
+                
+                // Mettre à jour l'affichage
+                const messageRow = document.querySelector(`[data-id="${messageId}"]`);
+                if (messageRow) {
+                    const audioDiv = messageRow.querySelector('.message-bubble > div');
+                    if (audioDiv) {
+                        audioDiv.innerHTML = '<div style="padding:8px; text-align:center;"><i class="fa-solid fa-check-double"></i> <span>🔇 Audio écouté (disparaîtra bientôt)</span></div>';
+                        audioDiv.classList.add('ephemeral-played');
+                    }
+                }
+            });
+        }
+        
+        // Nettoyer les audios éphémères au chargement (réécouter impossible)
+        async function cleanupEphemeralAudios() {
+            const messagesRef = db.collection('chats').doc(chatId).collection('messages');
+            const snapshot = await messagesRef.where('isEphemeralAudio', '==', true).get();
+            
+            snapshot.forEach(async (doc) => {
+                const data = doc.data();
+                // Si l'audio a été écouté par l'utilisateur actuel et qu'il a plus de 5 minutes
+                if (data.playedBy && data.playedBy.includes(currentUser.id)) {
+                    const timestamp = data.timestamp?.toDate();
+                    if (timestamp && (Date.now() - timestamp.getTime() > 300000)) { // 5 minutes
+                        await doc.ref.delete();
+                    }
+                }
+            });
+        }
+      
+              // ========== STATUT D'HUMEUR ÉMOJI ANIMÉ ==========
+        
+        // Afficher/cacher le panneau des statuts
+        function toggleMoodPanel() {
+            const panel = document.getElementById('mood-panel');
+            if (panel.style.display === 'flex') {
+                panel.style.display = 'none';
+            } else {
+                panel.style.display = 'flex';
+            }
+        }
+        
+        // Définir un nouveau statut
+        async function setMood(emoji, label) {
+            currentMood = { emoji: emoji, label: label };
+            
+            // Mettre à jour l'affichage local
+            const moodSpan = document.getElementById('mood-emoji');
+            moodSpan.textContent = emoji;
+            
+            // Ajouter l'animation
+            const moodDiv = document.getElementById('mood-status');
+            moodDiv.classList.add('animated');
+            
+            // Enlever l'animation après 2 secondes
+            setTimeout(() => {
+                moodDiv.classList.remove('animated');
+            }, 2000);
+            
+            // Sauvegarder dans Firestore (collection users)
+            await db.collection('users').doc(currentUser.id).set({
+                mood: currentMood,
+                lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            
+            // Cacher le panneau
+            document.getElementById('mood-panel').style.display = 'none';
+            
+            showTempNotification(`🎭 Statut: ${emoji} ${label}`);
+        }
+        
+        // Effacer le statut
+        async function clearMood() {
+            currentMood = { emoji: '😊', label: 'Heureux' };
+            
+            const moodSpan = document.getElementById('mood-emoji');
+            moodSpan.textContent = '😊';
+            
+            await db.collection('users').doc(currentUser.id).set({
+                mood: currentMood,
+                lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            
+            document.getElementById('mood-panel').style.display = 'none';
+            showTempNotification("🗑️ Statut effacé (retour à Heureux)");
+        }
+        
+        // Écouter le statut de l'autre utilisateur
+      
+              // Afficher le statut de l'autre utilisateur à côté de son nom
+        function displayOtherUserMood(emoji, label) {
+            // Afficher l'emoji à côté du nom du correspondant
+            const otherMoodSpan = document.getElementById('other-mood-emoji');
+            if (otherMoodSpan) {
+                otherMoodSpan.innerHTML = emoji;
+                otherMoodSpan.title = label;
+                // Ajouter une animation
+                otherMoodSpan.style.animation = 'none';
+                setTimeout(() => {
+                    otherMoodSpan.style.animation = 'moodPulse 0.5s ease';
+                }, 10);
+                setTimeout(() => {
+                    otherMoodSpan.style.animation = '';
+                }, 500);
+            }
+            
+            // Afficher aussi une notification discrète
+            if (targetUser) {
+                showTempNotification(`🎭 ${targetUser.full} est ${label} ${emoji}`);
+            }
+        }
+               // Écouter le statut de l'autre utilisateur
+               // Écouter le statut de l'autre utilisateur
+        function listenToUserMood() {
+            if (!targetUser) return;
+            
+            db.collection('users').doc(targetUser.id).onSnapshot((doc) => {
+                if (doc.exists && doc.data().mood) {
+                    const userMood = doc.data().mood;
+                    displayOtherUserMood(userMood.emoji, userMood.label);
+                }
+            });
+        }
+        
+        // Sauvegarder son propre statut au démarrage
+ 
+        
+        // Sauvegarder le statut par défaut au démarrage
+        async function saveDefaultMood() {
+            if (currentUser) {
+                await db.collection('users').doc(currentUser.id).set({
+                    mood: currentMood,
+                    lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+        }
+      
+              // ========== INDICATEUR DE BATTERIE EN TEMPS RÉEL ==========
+        
+        // Récupérer le niveau de batterie de l'utilisateur
+        async function getBatteryLevel() {
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    
+                    const level = Math.floor(battery.level * 100);
+                    currentBatteryLevel = level;
+                    isCharging = battery.charging;
+                    
+                    // Sauvegarder dans Firestore
+                    await db.collection('users').doc(currentUser.id).set({
+                        battery: {
+                            level: level,
+                            charging: battery.charging,
+                            lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+                        }
+                    }, { merge: true });
+                    
+                    // Mettre à jour l'affichage local
+                    updateBatteryDisplay(level, battery.charging);
+                    
+                    // Écouter les changements de batterie
+                    battery.addEventListener('levelchange', () => updateBatteryAndSync());
+                    battery.addEventListener('chargingchange', () => updateBatteryAndSync());
+                    
+                } catch (error) {
+                    console.log("Battery API non disponible:", error);
+                    setDefaultBatteryStatus();
+                }
+            } else {
+                console.log("Battery API non supportée par ce navigateur");
+                setDefaultBatteryStatus();
+            }
+        }
+        
+        async function updateBatteryAndSync() {
+            if ('getBattery' in navigator) {
+                const battery = await navigator.getBattery();
+                const level = Math.floor(battery.level * 100);
+                currentBatteryLevel = level;
+                isCharging = battery.charging;
+                
+                await db.collection('users').doc(currentUser.id).set({
+                    battery: {
+                        level: level,
+                        charging: battery.charging,
+                        lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                }, { merge: true });
+                
+                updateBatteryDisplay(level, battery.charging);
+            }
+        }
+        
+        function updateBatteryDisplay(level, charging) {
+            const percentSpan = document.getElementById('battery-percent');
+            const iconSpan = document.getElementById('battery-icon');
+            
+            if (!percentSpan) return;
+            
+            percentSpan.textContent = level + '%';
+            
+            // Changer l'icône et la couleur selon le niveau
+            if (charging) {
+                iconSpan.innerHTML = '⚡';
+                percentSpan.className = 'battery-percent battery-charging';
+            } else if (level <= 15) {
+                iconSpan.innerHTML = '🪫';
+                percentSpan.className = 'battery-percent battery-low';
+            } else if (level <= 30) {
+                iconSpan.innerHTML = '🔋';
+                percentSpan.className = 'battery-percent battery-medium';
+            } else {
+                iconSpan.innerHTML = '🔋';
+                percentSpan.className = 'battery-percent battery-high';
+            }
+        }
+        
+        function setDefaultBatteryStatus() {
+            const percentSpan = document.getElementById('battery-percent');
+            if (percentSpan) {
+                percentSpan.textContent = 'N/A';
+                percentSpan.className = 'battery-percent';
+            }
+        }
+        
+        // Écouter la batterie de l'autre utilisateur
+        function listenToOtherUserBattery() {
+            if (!targetUser) return;
+            
+            db.collection('users').doc(targetUser.id).onSnapshot((doc) => {
+                if (doc.exists && doc.data().battery) {
+                    const batteryData = doc.data().battery;
+                    displayOtherUserBattery(batteryData.level, batteryData.charging);
+                }
+            });
+        }
+        
+        // Afficher la batterie de l'autre utilisateur
+        function displayOtherUserBattery(level, charging) {
+            const batteryIndicator = document.getElementById('battery-indicator');
+            const percentSpan = document.getElementById('battery-percent');
+            const iconSpan = document.getElementById('battery-icon');
+            
+            if (!batteryIndicator) return;
+            
+            percentSpan.textContent = level + '%';
+            
+            if (charging) {
+                iconSpan.innerHTML = '⚡';
+                percentSpan.className = 'battery-percent battery-charging';
+            } else if (level <= 15) {
+                iconSpan.innerHTML = '🪫';
+                percentSpan.className = 'battery-percent battery-low';
+                // Notification si batterie très faible
+                if (level <= 10) {
+                    showTempNotification(`⚠️ ${targetUser.full} a seulement ${level}% de batterie !`);
+                }
+            } else if (level <= 30) {
+                iconSpan.innerHTML = '🔋';
+                percentSpan.className = 'battery-percent battery-medium';
+            } else {
+                iconSpan.innerHTML = '🔋';
+                percentSpan.className = 'battery-percent battery-high';
+            }
+            
+            // Ajouter un tooltip
+            batteryIndicator.title = charging ? `${level}% (en charge)` : `${level}% restant`;
+        }
+        
+        // Arrêter la surveillance de la batterie
+        function stopBatteryMonitoring() {
+            if (batteryInterval) {
+                clearInterval(batteryInterval);
+                batteryInterval = null;
+            }
+        }
+      
+              // ========== MODULE FLASH (VIBRATION SYNCHRONE) ==========
+        
+        // Déclencher la vibration chez l'autre utilisateur
+        async function triggerFlashVibration() {
+            if (!targetUser) return;
+            
+            const flashBtn = document.getElementById('flash-btn');
+            
+            // Animation du bouton
+            flashBtn.classList.add('flash-active');
+            setTimeout(() => {
+                flashBtn.classList.remove('flash-active');
+            }, 300);
+            
+            // Récupérer le token de l'autre utilisateur (Firestore)
+            const userDoc = await db.collection('users').doc(targetUser.id).get();
+            const userData = userDoc.data();
+            
+            // Envoyer un signal de vibration
+            await db.collection('flash_signals').add({
+                targetUserId: targetUser.id,
+                sourceUserId: currentUser.id,
+                sourceUserName: currentUser.name,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                pattern: getVibrationPattern()
+            });
+            
+            showTempNotification(`⚡ Vibration envoyée à ${targetUser.full} !`);
+            
+            // Vibrer localement aussi pour confirmation
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+        }
+        
+        // Générer un motif de vibration basé sur des clics répétés
+        let lastFlashTime = 0;
+        let flashCount = 0;
+        
+        function getVibrationPattern() {
+            const now = Date.now();
+            const timeSinceLast = now - lastFlashTime;
+            
+            if (timeSinceLast < 1000) {
+                flashCount++;
+                if (flashCount > 10) flashCount = 10;
+            } else {
+                flashCount = 1;
+            }
+            
+            lastFlashTime = now;
+            
+            // Créer un motif basé sur le nombre de clics
+            const pattern = [];
+            for (let i = 0; i < Math.min(flashCount, 5); i++) {
+                pattern.push(200); // vibrer 200ms
+                if (i < flashCount - 1) pattern.push(100); // pause 100ms
+            }
+            
+            return pattern;
+        }
+        
+        // Écouter les signaux de flash pour l'utilisateur actuel
+        function listenForFlashSignals() {
+            if (!currentUser) return;
+            
+            db.collection('flash_signals')
+                .where('targetUserId', '==', currentUser.id)
+                .orderBy('timestamp', 'desc')
+                .limitToLast(10)
+                .onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const signalData = change.doc.data();
+                            executeFlashVibration(signalData);
+                            
+                            // Supprimer le signal après traitement (optionnel)
+                            setTimeout(() => {
+                                change.doc.ref.delete();
+                            }, 5000);
+                        }
+                    });
+                });
+        }
+        
+        // Exécuter la vibration sur le téléphone de l'utilisateur
+        function executeFlashVibration(signalData) {
+            const pattern = signalData.pattern || [200];
+            
+            console.log(`⚡ Vibration reçue de ${signalData.sourceUserName}`, pattern);
+            
+            // Vibration même en arrière-plan (si l'API le permet)
+            if (navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+            
+            // Afficher une notification visuelle
+            showFlashNotification(signalData.sourceUserName);
+            
+            // Jouer un son de flash (optionnel)
+            playFlashSound();
+            
+            // Vibration répétée si nécessaire
+            if (pattern.length > 2) {
+                if (navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                }
+            }
+        }
+        
+        // Afficher une notification visuelle éphémère
+        function showFlashNotification(senderName) {
+            const notif = document.createElement('div');
+            notif.className = 'flash-notification';
+            notif.innerHTML = `⚡<br><span style="font-size:0.8rem;">${senderName} vous a flashé !</span>`;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 1000);
+        }
+        
+        // Jouer un son court (si l'utilisateur a interagi avec la page)
+        let audioContext = null;
+        
+        function playFlashSound() {
+            try {
+                // Utiliser l'API Web Audio pour un "beep" simple
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 880; // La note A5
+                gainNode.gain.value = 0.3;
+                
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                // Reprendre l'audio context si suspendu
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            } catch (error) {
+                console.log("Audio non disponible:", error);
+            }
+        }
+        
+        // Arrêter la vibration en cours
+        function stopFlashVibration() {
+            if (navigator.vibrate) {
+                navigator.vibrate(0);
+            }
+            isVibrating = false;
+        }
+        
+        // Simuler une vibration (pour les navigateurs qui ne supportent pas)
+        function simulateVibration() {
+            // Créer une petite animation pour simuler la vibration
+            const body = document.body;
+            let count = 0;
+            const interval = setInterval(() => {
+                if (count > 10) {
+                    clearInterval(interval);
+                    body.style.transform = '';
+                    return;
+                }
+                body.style.transform = count % 2 === 0 ? 'translateX(2px)' : 'translateX(-2px)';
+                count++;
+            }, 50);
+        }
+      
+              // Ouvrir le canvas
+        function openCanvasDrawer() {
+            const modal = document.getElementById('canvas-modal');
+            modal.style.display = 'flex';
+            
+            // Initialiser le canvas après l'ouverture
+            setTimeout(() => {
+                initCanvas();
+            }, 100);
+        }
+        
+        // Fermer le canvas
+        function closeCanvasDrawer() {
+            const modal = document.getElementById('canvas-modal');
+            modal.style.display = 'none';
+        }
+        
+        // Initialiser le canvas
+        function initCanvas() {
+            canvas = document.getElementById('drawing-canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Taille du canvas (plein écran moins la toolbar)
+            const toolbarHeight = 70;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - toolbarHeight - 100;
+            
+            // Remplir de blanc
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Redessiner les émojis sauvegardés
+            canvasEmojis.forEach(emoji => {
+                drawEmojiOnCanvas(emoji.emoji, emoji.x, emoji.y, emoji.size);
+            });
+            
+            // Événements de dessin
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseleave', stopDrawing);
+            
+            // Pour le tactile
+            canvas.addEventListener('touchstart', startDrawingTouch);
+            canvas.addEventListener('touchmove', drawTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+        }
+        
+        function startDrawing(e) {
+            drawing = true;
+            const pos = getMousePos(canvas, e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+        
+        function draw(e) {
+            if (!drawing) return;
+            const pos = getMousePos(canvas, e);
+            
+            if (isDrawMode) {
+                ctx.strokeStyle = currentColor;
+                ctx.lineWidth = currentBrushSize;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            } else {
+                // Mode effaceur
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, currentBrushSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            }
+        }
+        
+        function stopDrawing() {
+            drawing = false;
+            ctx.beginPath();
+        }
+        
+        function startDrawingTouch(e) {
+            e.preventDefault();
+            drawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+        
+        function drawTouch(e) {
+            e.preventDefault();
+            if (!drawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            if (isDrawMode) {
+                ctx.strokeStyle = currentColor;
+                ctx.lineWidth = currentBrushSize;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(x, y, currentBrushSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+        }
+        
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+        
+        function setColor(color) {
+            currentColor = color;
+            isDrawMode = true;
+            document.getElementById('draw-mode').classList.add('active');
+            document.getElementById('eraser-mode').classList.remove('active');
+        }
+        
+        function setDrawMode(mode) {
+            isDrawMode = mode;
+            if (mode) {
+                document.getElementById('draw-mode').classList.add('active');
+                document.getElementById('eraser-mode').classList.remove('active');
+            } else {
+                document.getElementById('draw-mode').classList.remove('active');
+                document.getElementById('eraser-mode').classList.add('active');
+            }
+        }
+        
+        function changeBrushSize(size) {
+            currentBrushSize = size;
+        }
+        
+        function clearCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasEmojis = [];
+        }
+        
+        // Ajouter un émoji sur le canvas
+        function addEmojiToCanvas(emoji) {
+            const x = canvas.width / 2 + (Math.random() - 0.5) * 100;
+            const y = canvas.height / 2 + (Math.random() - 0.5) * 100;
+            const size = 40 + Math.random() * 20;
+            
+            canvasEmojis.push({ emoji: emoji, x: x, y: y, size: size });
+            drawEmojiOnCanvas(emoji, x, y, size);
+        }
+        
+        function drawEmojiOnCanvas(emoji, x, y, size) {
+            ctx.font = `${size}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+            ctx.fillStyle = 'black';
+            ctx.fillText(emoji, x - size/2, y + size/2);
+        }
+        
+        // Envoyer le dessin comme image
+        async function sendDrawing() {
+            if (!canvas) return;
+            
+            // Convertir le canvas en image base64
+            const imageData = canvas.toDataURL('image/png');
+            
+            // Envoyer comme message
+            const msgData = {
+                text: null,
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                status: "sent",
+                readBy: [currentUser.id],
+                type: "drawing",
+                isEphemeral: false,
+                mediaUrl: imageData,
+                drawingData: {
+                    width: canvas.width,
+                    height: canvas.height
+                }
+            };
+            
+            await db.collection('chats').doc(chatId).collection('messages').add(msgData);
+            
+            showTempNotification("🎨 Dessin envoyé !");
+            closeCanvasDrawer();
+        }
+        
+        // Redimensionner le canvas quand la fenêtre change
+        window.addEventListener('resize', () => {
+            if (canvas && document.getElementById('canvas-modal').style.display === 'flex') {
+                initCanvas();
+            }
+        });
+      
+              // ========== MODE FLOU POUR MESSAGES ==========
+        
+        function toggleBlurMode() {
+            blurModeActive = !blurModeActive;
+            const container = document.getElementById('msg-area');
+            const blurBtn = document.getElementById('blur-toggle-btn');
+            
+            if (blurModeActive) {
+                container.classList.add('blur-mode');
+                blurBtn.classList.add('active');
+                blurBtn.classList.remove('fa-eye-slash');
+                blurBtn.classList.add('fa-eye');
+                showBlurNotification("🔒 Mode Flou activé - Cliquez et maintenez sur un message pour le lire");
+                
+                // Appliquer le flou à tous les messages existants
+                applyBlurToAllMessages();
+            } else {
+                container.classList.remove('blur-mode');
+                blurBtn.classList.remove('active');
+                blurBtn.classList.remove('fa-eye');
+                blurBtn.classList.add('fa-eye-slash');
+                showBlurNotification("👁️ Mode Flou désactivé");
+                
+                // Enlever le flou de tous les messages
+                removeBlurFromAllMessages();
+            }
+            
+            // Sauvegarder la préférence
+            localStorage.setItem('blurModeActive', blurModeActive);
+        }
+        
+        function applyBlurToAllMessages() {
+            const allBubbles = document.querySelectorAll('.message-bubble');
+            allBubbles.forEach(bubble => {
+                bubble.classList.add('blur-active');
+                bubble.classList.remove('blur-cleared');
+                
+                // Ajouter les écouteurs d'événements
+                attachBlurEvents(bubble);
+            });
+        }
+        
+        function removeBlurFromAllMessages() {
+            const allBubbles = document.querySelectorAll('.message-bubble');
+            allBubbles.forEach(bubble => {
+                bubble.classList.remove('blur-active', 'blur-cleared');
+                removeBlurEvents(bubble);
+            });
+        }
+        
+        function attachBlurEvents(bubble) {
+            // Supprimer les anciens écouteurs pour éviter les doublons
+            bubble.removeEventListener('mousedown', startPressToRead);
+            bubble.removeEventListener('mouseup', endPressToRead);
+            bubble.removeEventListener('mouseleave', cancelPressToRead);
+            bubble.removeEventListener('touchstart', startPressToReadTouch);
+            bubble.removeEventListener('touchend', endPressToReadTouch);
+            
+            // Ajouter les nouveaux écouteurs
+            bubble.addEventListener('mousedown', startPressToRead);
+            bubble.addEventListener('mouseup', endPressToRead);
+            bubble.addEventListener('mouseleave', cancelPressToRead);
+            bubble.addEventListener('touchstart', startPressToReadTouch);
+            bubble.addEventListener('touchend', endPressToReadTouch);
+        }
+        
+        function removeBlurEvents(bubble) {
+            bubble.removeEventListener('mousedown', startPressToRead);
+            bubble.removeEventListener('mouseup', endPressToRead);
+            bubble.removeEventListener('mouseleave', cancelPressToRead);
+            bubble.removeEventListener('touchstart', startPressToReadTouch);
+            bubble.removeEventListener('touchend', endPressToReadTouch);
+        }
+        
+        function startPressToRead(e) {
+            if (!blurModeActive) return;
+            
+            const bubble = e.currentTarget;
+            currentBlurMessage = bubble;
+            
+            // Démarrer un timer : après 200ms, on enlève le flou
+            pressTimer = setTimeout(() => {
+                if (currentBlurMessage) {
+                    currentBlurMessage.classList.remove('blur-active');
+                    currentBlurMessage.classList.add('blur-cleared');
+                    
+                    // Ajouter une indication visuelle
+                    const originalTitle = currentBlurMessage.getAttribute('data-original-title') || '';
+                    if (!currentBlurMessage.getAttribute('data-original-title')) {
+                        currentBlurMessage.setAttribute('data-original-title', currentBlurMessage.title || '');
+                        currentBlurMessage.title = 'Appuyez pour voir le message';
+                    }
+                }
+            }, 200);
+        }
+        
+        function endPressToRead(e) {
+            if (!blurModeActive) return;
+            
+            // Annuler le timer si on a relâché avant 200ms
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            
+            // Remettre le flou après un court délai (pour permettre la lecture)
+            if (currentBlurMessage) {
+                setTimeout(() => {
+                    if (currentBlurMessage && blurModeActive) {
+                        currentBlurMessage.classList.add('blur-active');
+                        currentBlurMessage.classList.remove('blur-cleared');
+                    }
+                    currentBlurMessage = null;
+                }, 500);
+            }
+        }
+        
+        function cancelPressToRead(e) {
+            if (!blurModeActive) return;
+            
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            
+            if (currentBlurMessage) {
+                currentBlurMessage.classList.add('blur-active');
+                currentBlurMessage.classList.remove('blur-cleared');
+                currentBlurMessage = null;
+            }
+        }
+        
+        // Version tactile
+        function startPressToReadTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const element = document.elementFromPoint(touch.clientX, touch.clientY);
+            const bubble = element.closest('.message-bubble');
+            if (bubble) {
+                startPressToRead({ currentTarget: bubble });
+            }
+        }
+        
+        function endPressToReadTouch(e) {
+            e.preventDefault();
+            endPressToRead(e);
+        }
+        
+        function showBlurNotification(message) {
+            const notif = document.createElement('div');
+            notif.className = 'blur-notification';
+            notif.textContent = message;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 2000);
+        }
+        
+        // Appliquer le flou aux nouveaux messages ajoutés dynamiquement
+        function applyBlurToNewMessage(bubble) {
+            if (blurModeActive) {
+                bubble.classList.add('blur-active');
+                attachBlurEvents(bubble);
+            }
+        }
+      
+              // ========== MODE LIVE ==========
+        
+               function toggleLiveMode() {
+            liveModeActive = !liveModeActive;
+            const liveBtn = document.getElementById('live-toggle-btn');
+            const liveContainer = document.getElementById('live-container');
+            
+            if (liveModeActive) {
+                liveBtn.classList.add('active');
+                liveBtn.style.color = '#ff4444';
+                liveContainer.classList.add('active');
+                showTempNotification("🔴 Mode Live ACTIVÉ - Vous verrez ce que l'autre tape en temps réel");
+                
+                // Démarrer l'écoute du texte en direct (peu importe si l'autre a activé ou non)
+                startLiveTypingListener();
+            } else {
+                liveBtn.classList.remove('active');
+                liveBtn.style.color = '';
+                liveContainer.classList.remove('active');
+                showTempNotification("⚫ Mode Live DÉSACTIVÉ");
+                
+                // Arrêter l'écoute
+                stopLiveTypingListener();
+            }
+            
+            // Sauvegarder la préférence (uniquement pour cet utilisateur)
+            localStorage.setItem('liveModeActive', liveModeActive);
+        }
+        
+               function startLiveTypingListener() {
+            if (!targetUser) return;
+            
+            // On écoute ce que l'UTILISATEUR CIBLE (targetUser) tape
+            // Peu importe que targetUser ait activé le mode live ou non
+            // On écoute son document live_typing qui est toujours mis à jour quand il tape
+            
+            const liveDocRef = db.collection('live_typing').doc(chatId);
+            
+            liveDocRef.onSnapshot((doc) => {
+                // Même si l'autre n'a PAS activé le mode live,
+                // on reçoit ses mises à jour car on les envoie TOUJOURS (voir modification suivante)
+                if (doc.exists && liveModeActive) {
+                    const data = doc.data();
+                    const currentText = data.text || "";
+                    const senderId = data.senderId;
+                    const senderName = data.senderName;
+                    
+                    // Vérifier que c'est bien l'autre qui tape
+                    if (senderId === targetUser.id && currentText !== currentLiveText) {
+                        currentLiveText = currentText;
+                        
+                        // Mettre à jour l'affichage
+                        updateLivePreview(senderName, currentText);
+                        
+                        // Animer la barre de progression
+                        animateLiveBar(currentText.length);
+                    }
+                }
+            });
+        }
+        
+        function stopLiveTypingListener() {
+            // Nettoyer l'affichage
+            const previewSpan = document.getElementById('live-message-preview');
+            if (previewSpan) {
+                previewSpan.textContent = "";
+            }
+            const bar = document.getElementById('live-bar');
+            if (bar) {
+                bar.style.width = '0%';
+            }
+            currentLiveText = "";
+        }
+        
+        function updateLivePreview(senderName, text) {
+            const senderSpan = document.getElementById('live-sender-name');
+            const previewSpan = document.getElementById('live-message-preview');
+            
+            if (senderSpan) {
+                senderSpan.textContent = senderName;
+            }
+            
+            if (previewSpan) {
+                if (text && text.length > 0) {
+                    previewSpan.textContent = text;
+                    previewSpan.style.opacity = '1';
+                } else {
+                    previewSpan.textContent = "en train d'écrire...";
+                    previewSpan.style.opacity = '0.6';
+                }
+            }
+        }
+        
+        function animateLiveBar(textLength) {
+            const bar = document.getElementById('live-bar');
+            if (!bar) return;
+            
+            // Plus le texte est long, plus la barre avance (max 100%)
+            let percentage = Math.min(textLength * 2, 100);
+            bar.style.width = percentage + '%';
+            
+            // Reset après 2 secondes d'inactivité
+            if (liveUpdateTimeout) clearTimeout(liveUpdateTimeout);
+            liveUpdateTimeout = setTimeout(() => {
+                if (bar) bar.style.width = '0%';
+            }, 2000);
+        }
+        
+        // Envoyer le texte en temps réel pendant que l'utilisateur tape
+               // Envoyer le texte en temps réel pendant que l'utilisateur tape
+        // Cette fonction s'exécute TOUJOURS, que le mode live soit activé ou non
+        function sendLiveTypingUpdate() {
+            if (!currentUser) return;
+            
+            const input = document.getElementById('chat-in');
+            const text = input.value;
+            
+            // Mettre à jour Firestore en temps réel (avec debounce pour éviter trop d'écritures)
+            if (liveUpdateTimeout) clearTimeout(liveUpdateTimeout);
+            
+            liveUpdateTimeout = setTimeout(() => {
+                // On envoie TOUJOURS la mise à jour, même si personne n'a activé le mode live
+                // Comme ça, si quelqu'un l'active plus tard, il verra l'historique
+                db.collection('live_typing').doc(chatId).set({
+                    text: text,
+                    senderId: currentUser.id,
+                    senderName: currentUser.name,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }, 50);
+        }
+        
+        // Modifier handleTyping pour envoyer aussi les mises à jour live
+        const originalHandleTyping = handleTyping;
+        window.handleTyping = function() {
+            // Appeler la fonction originale
+            originalHandleTyping();
+            
+            // Envoyer la mise à jour live si le mode est activé
+            if (liveModeActive) {
+                sendLiveTypingUpdate();
+            }
+        };
+        
+        // Nettoyer le live quand le message est envoyé
+        function clearLiveTyping() {
+            db.collection('live_typing').doc(chatId).set({
+                text: "",
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Réinitialiser l'affichage local
+            const bar = document.getElementById('live-bar');
+            if (bar) bar.style.width = '0%';
+        }
+    </script>
+  
+          <!-- Modal pour saisir le code PIN -->
+        <div class="pin-modal" id="pin-modal">
+            <div class="pin-box">
+                <h3>🔒</h3>
+                <p> </p>
+                <input type="password" class="pin-input" id="pin-input" maxlength="4" placeholder="****" inputmode="numeric">
+                <div class="pin-buttons">
+                    <button class="pin-btn confirm" onclick="verifyPin()">Déverrouiller</button>
+                    <button class="pin-btn cancel" onclick="closePinModal()">Annuler</button>
+                </div>
+            </div>
+        </div>
+  
+          <!-- MODAL TABLEAU DE DESSIN -->
+        <div class="canvas-modal" id="canvas-modal">
+            <div class="canvas-toolbar">
+                <button class="canvas-tool-btn" id="draw-mode" onclick="setDrawMode(true)">✏️ Dessiner</button>
+                <button class="canvas-tool-btn" id="eraser-mode" onclick="setDrawMode(false)">🧽 Effacer</button>
+                <div class="canvas-colors">
+                    <div class="color-option" style="background: #000000;" onclick="setColor('#000000')"></div>
+                    <div class="color-option" style="background: #ff0000;" onclick="setColor('#ff0000')"></div>
+                    <div class="color-option" style="background: #00ff00;" onclick="setColor('#00ff00')"></div>
+                    <div class="color-option" style="background: #0000ff;" onclick="setColor('#0000ff')"></div>
+                    <div class="color-option" style="background: #ffff00;" onclick="setColor('#ffff00')"></div>
+                    <div class="color-option" style="background: #ff00ff;" onclick="setColor('#ff00ff')"></div>
+                    <div class="color-option" style="background: #00ffff;" onclick="setColor('#00ffff')"></div>
+                    <div class="color-option" style="background: #ff6600;" onclick="setColor('#ff6600')"></div>
+                </div>
+                <button class="canvas-tool-btn" onclick="clearCanvas()">🗑️ Effacer tout</button>
+                <button class="canvas-tool-btn" onclick="changeBrushSize(5)">🔵 Petit</button>
+                <button class="canvas-tool-btn" onclick="changeBrushSize(15)">🟢 Moyen</button>
+                <button class="canvas-tool-btn" onclick="changeBrushSize(30)">🔴 Grand</button>
+            </div>
+            
+            <canvas id="drawing-canvas" class="canvas-area"></canvas>
+            
+            <div class="emoji-palette" id="emoji-palette">
+                <span onclick="addEmojiToCanvas('😀')">😀</span>
+                <span onclick="addEmojiToCanvas('😂')">😂</span>
+                <span onclick="addEmojiToCanvas('❤️')">❤️</span>
+                <span onclick="addEmojiToCanvas('🔥')">🔥</span>
+                <span onclick="addEmojiToCanvas('👍')">👍</span>
+                <span onclick="addEmojiToCanvas('🎉')">🎉</span>
+                <span onclick="addEmojiToCanvas('😢')">😢</span>
+                <span onclick="addEmojiToCanvas('😮')">😮</span>
+                <span onclick="addEmojiToCanvas('🐱')">🐱</span>
+                <span onclick="addEmojiToCanvas('🐶')">🐶</span>
+                <span onclick="addEmojiToCanvas('⭐')">⭐</span>
+                <span onclick="addEmojiToCanvas('💀')">💀</span>
+            </div>
+            
+            <div class="canvas-actions">
+                <button class="canvas-send-btn" onclick="sendDrawing()">📤 Envoyer le dessin</button>
+                <button class="canvas-close-btn" onclick="closeCanvasDrawer()">❌ Fermer</button>
+            </div>
+        </div>
+</body>
+</html> 
