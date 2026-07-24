@@ -225,11 +225,19 @@
 
     <div class="carte">
       <h2 style="font-size:15px;">Par classe</h2>
+      <div class="champ" style="max-width:340px; margin-bottom:14px;">
+        <label>Choisir une classe</label>
+        <select id="suiviSelectClasse" onchange="afficherSuiviClasseSelectionnee()"></select>
+      </div>
       <div id="suiviParClasse"></div>
     </div>
 
     <div class="carte">
       <h2 style="font-size:15px;">Par professeur</h2>
+      <div class="champ" style="max-width:340px; margin-bottom:14px;">
+        <label>Choisir un professeur</label>
+        <select id="suiviSelectProf" onchange="afficherSuiviProfSelectionne()"></select>
+      </div>
       <div id="suiviParProf"></div>
     </div>
   </div>
@@ -901,9 +909,8 @@ function afficherAttribution(liaisons) {
    ETAPE 4 : SUIVI (ce qui manque, par classe et par professeur)
    ========================================================== */
 function afficherSuivi() {
-  const { liaisons, erreurs } = autoAssignerProfs();
+  const { erreurs } = autoAssignerProfs();
 
-  // --- Résumé en tête de page ---
   const zoneResume = document.getElementById("resumeSuivi");
   if (etat.classes.length === 0 || etat.volumesParNiveau.length === 0) {
     zoneResume.innerHTML = `<div class="message-avert">Complète d'abord les étapes 1 et 2 pour voir le suivi.</div>`;
@@ -913,45 +920,63 @@ function afficherSuivi() {
     zoneResume.innerHTML = `<div class="message-avert">${erreurs.length} matière(s) sans professeur pour l'instant — le planning pourra quand même être généré, ces cases resteront vides.</div>`;
   }
 
-  // --- Par classe ---
-  const zoneClasse = document.getElementById("suiviParClasse");
-  if (etat.classes.length === 0) {
-    zoneClasse.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucune classe.</p>";
-  } else {
-    let html = `<table><thead><tr><th>Classe</th><th>Matière</th><th>Heures</th><th>Professeur</th></tr></thead><tbody>`;
-    etat.classes.forEach(classe => {
-      const matieres = matieresPourClasse(classe);
-      if (matieres.length === 0) {
-        html += `<tr><td>${nomClasse(classe)}</td><td colspan="3" style="color:#b8860b;">Aucune matière réglée pour ce niveau (étape 2)</td></tr>`;
-        return;
-      }
-      matieres.forEach(v => {
-        const liaison = liaisons.find(l => l.classeId === classe.id && normaliser(l.matiere) === normaliser(v.matiere));
-        const prof = liaison ? etat.profs.find(p => p.id === liaison.profId) : null;
-        html += `<tr><td>${nomClasse(classe)}</td><td>${v.matiere}</td><td>${v.heures}h</td>
-          <td>${prof ? prof.nom : '<span style="color:#b91c1c;font-weight:600;">⚠ Aucun professeur</span>'}</td></tr>`;
-      });
-    });
-    html += `</tbody></table>`;
-    zoneClasse.innerHTML = html;
-  }
+  const selClasse = document.getElementById("suiviSelectClasse");
+  const valeurClasseActuelle = selClasse.value;
+  selClasse.innerHTML = etat.classes.map(c => `<option value="${c.id}">${nomClasse(c)}</option>`).join("");
+  if (etat.classes.some(c => c.id === valeurClasseActuelle)) selClasse.value = valeurClasseActuelle;
 
-  // --- Par professeur ---
-  const zoneProf = document.getElementById("suiviParProf");
-  if (etat.profs.length === 0) {
-    zoneProf.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucun professeur.</p>";
-  } else {
-    let html = `<table><thead><tr><th>Professeur</th><th>Matière(s)</th><th>Niveaux couverts</th><th>Classes attribuées</th></tr></thead><tbody>`;
-    etat.profs.forEach(p => {
-      const assignations = liaisons.filter(l => l.profId === p.id);
-      const niveauxTxt = p.niveaux.map(cle => { const [cycle, niveau] = cle.split("||"); return `${niveau} (${cycle})`; }).join(", ");
-      const classesTxt = assignations.map(l => { const c = etat.classes.find(x => x.id === l.classeId); return c ? `${nomClasse(c)} (${l.matiere})` : null; }).filter(Boolean).join(", ");
-      html += `<tr><td>${p.nom}</td><td>${p.matieres.join(", ")}</td><td>${niveauxTxt || "—"}</td>
-        <td>${classesTxt || '<span style="color:#b8860b;">Aucune classe attribuée pour l’instant</span>'}</td></tr>`;
-    });
-    html += `</tbody></table>`;
-    zoneProf.innerHTML = html;
+  const selProf = document.getElementById("suiviSelectProf");
+  const valeurProfActuelle = selProf.value;
+  selProf.innerHTML = etat.profs.map(p => `<option value="${p.id}">${p.nom}</option>`).join("");
+  if (etat.profs.some(p => p.id === valeurProfActuelle)) selProf.value = valeurProfActuelle;
+
+  afficherSuiviClasseSelectionnee();
+  afficherSuiviProfSelectionne();
+}
+
+function afficherSuiviClasseSelectionnee() {
+  const zone = document.getElementById("suiviParClasse");
+  if (etat.classes.length === 0) { zone.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucune classe.</p>"; return; }
+
+  const classeId = document.getElementById("suiviSelectClasse").value;
+  const classe = etat.classes.find(c => c.id === classeId);
+  if (!classe) { zone.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Sélectionne une classe.</p>"; return; }
+
+  const { liaisons } = autoAssignerProfs();
+  const matieres = matieresPourClasse(classe);
+  if (matieres.length === 0) {
+    zone.innerHTML = `<p style="color:#b8860b;font-size:13px;">Aucune matière réglée pour ce niveau (étape 2).</p>`;
+    return;
   }
+  let html = `<table><thead><tr><th>Matière</th><th>Heures</th><th>Professeur</th></tr></thead><tbody>`;
+  matieres.forEach(v => {
+    const liaison = liaisons.find(l => l.classeId === classe.id && normaliser(l.matiere) === normaliser(v.matiere));
+    const prof = liaison ? etat.profs.find(p => p.id === liaison.profId) : null;
+    html += `<tr><td>${v.matiere}</td><td>${v.heures}h</td>
+      <td>${prof ? prof.nom : '<span style="color:#b91c1c;font-weight:600;">⚠ Aucun professeur</span>'}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  zone.innerHTML = html;
+}
+
+function afficherSuiviProfSelectionne() {
+  const zone = document.getElementById("suiviParProf");
+  if (etat.profs.length === 0) { zone.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucun professeur.</p>"; return; }
+
+  const profId = document.getElementById("suiviSelectProf").value;
+  const p = etat.profs.find(x => x.id === profId);
+  if (!p) { zone.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Sélectionne un professeur.</p>"; return; }
+
+  const { liaisons } = autoAssignerProfs();
+  const assignations = liaisons.filter(l => l.profId === p.id);
+  const niveauxTxt = p.niveaux.map(cle => { const [cycle, niveau] = cle.split("||"); return `${niveau} (${cycle})`; }).join(", ");
+  const classesTxt = assignations.map(l => { const c = etat.classes.find(x => x.id === l.classeId); return c ? `${nomClasse(c)} (${l.matiere})` : null; }).filter(Boolean).join(", ")
+    || 'Aucune classe attribuée pour l’instant';
+
+  const html = `<table><thead><tr><th>Matière(s)</th><th>Niveaux couverts</th><th>Classes attribuées</th></tr></thead><tbody>
+    <tr><td>${p.matieres.join(", ")}</td><td>${niveauxTxt || "—"}</td><td>${classesTxt}</td></tr>
+  </tbody></table>`;
+  zone.innerHTML = html;
 }
 
 /* ==========================================================
@@ -1071,4 +1096,4 @@ function rafraichirTout() {
 </script>
 
 </body>
-</html> 
+</html>
