@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emploi du temps — Groupe Scolaire SALDIA</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<style>
+  :root {
+    --marine: #0f2942; --marine-clair: #1e4266; --or: #b8860b; --or-clair: #f5e6c8;
+    --vert: #15803d; --rouge: #b91c1c; --fond: #f7f7f5; --carte: #ffffff;
+    --bordure: #e2e2de; --texte: #1c1c1c; --texte-att: #6b6b66;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", -apple-system, Roboto, Arial, sans-serif; background: var(--fond); color: var(--texte); margin: 0; padding: 0 0 60px 0; line-height: 1.55; }
+
+  header { background: var(--marine); color: white; padding: 22px 24px; }
+  .entete-contenu { max-width: 980px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .logo-ecole { display: flex; align-items: center; gap: 12px; }
+  .logo-ecole .badge-logo { width: 42px; height: 42px; border-radius: 8px; background: var(--or); color: var(--marine); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  header p { margin: 2px 0 0 0; opacity: 0.75; font-size: 13px; }
+  .statut-sauvegarde { font-size: 12px; color: var(--or-clair); opacity: 0.9; }
+
+  .conteneur { max-width: 980px; margin: 0 auto; padding: 24px 20px; }
+
+  nav.etapes-nav { display: flex; background: var(--carte); border: 1px solid var(--bordure); border-radius: 12px; padding: 6px; margin-bottom: 22px; gap: 4px; overflow-x: auto; }
+  nav.etapes-nav button { flex: 1; min-width: 130px; background: transparent; color: var(--texte-att); border: none; padding: 10px 8px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav.etapes-nav button .puce { width: 22px; height: 22px; border-radius: 50%; background: var(--bordure); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  nav.etapes-nav button.actif { background: var(--marine); color: white; }
+  nav.etapes-nav button.actif .puce { background: var(--or); color: var(--marine); }
+  nav.etapes-nav button.complet .puce { background: var(--vert); }
+
+  .etape { display: none; }
+  .etape.active { display: block; }
+
+  .carte { background: var(--carte); border: 1px solid var(--bordure); border-radius: 12px; padding: 22px; margin-bottom: 18px; }
+  .carte.en-edition { border-color: var(--or); box-shadow: 0 0 0 3px var(--or-clair); }
+  .carte h2 { margin: 0 0 4px 0; font-size: 18px; color: var(--marine); }
+  .carte .sous-titre { margin: 0 0 16px 0; font-size: 13px; color: var(--texte-att); }
+
+  .aide { background: #f0f6fb; border-left: 3px solid var(--marine-clair); padding: 10px 14px; font-size: 13px; color: #1e3a5f; border-radius: 4px; margin-bottom: 18px; }
+  .aide b { color: var(--marine); }
+
+  label { font-size: 12.5px; color: var(--texte-att); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+  input[type=text], input[type=number], input[type=search], select { padding: 9px 11px; border: 1px solid var(--bordure); border-radius: 7px; font-size: 14px; width: 100%; background: white; }
+  input:focus, select:focus { outline: 2px solid var(--marine-clair); outline-offset: 1px; }
+
+  .ligne-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 16px; }
+  .champ { flex: 1; min-width: 140px; }
+  .champ-groupe { margin-bottom: 16px; }
+
+  .cases-checkbox { display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid var(--bordure); border-radius: 8px; padding: 10px; background: var(--fond); min-height: 44px; }
+  .cases-checkbox .vide { font-size: 12.5px; color: var(--texte-att); padding: 4px; }
+  .case-checkbox-item { display: flex; align-items: center; gap: 5px; background: white; border: 1px solid var(--bordure); border-radius: 6px; padding: 5px 9px; font-size: 13px; cursor: pointer; }
+  .case-checkbox-item input { width: auto; margin: 0; }
+
+  button.principal, button { background: var(--marine); color: white; border: none; padding: 10px 18px; border-radius: 7px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  button:hover { filter: brightness(1.1); }
+  button.or { background: var(--or); color: var(--marine); }
+  button.secondaire { background: white; color: var(--marine); border: 1px solid var(--marine); }
+  button.discret { background: var(--fond); color: var(--texte-att); border: 1px solid var(--bordure); font-weight: 500; }
+  button.danger { background: white; color: var(--rouge); border: 1px solid var(--rouge); padding: 5px 10px; font-size: 12px; font-weight: 600; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+  th, td { border: 1px solid var(--bordure); padding: 8px 10px; text-align: left; }
+  th { background: var(--fond); font-weight: 700; color: var(--marine); font-size: 12px; text-transform: uppercase; }
+  tr:hover td { background: #fafaf8; }
+
+  .carte-niveau { border: 1px solid var(--bordure); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+  .entete-niveau { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; background: var(--fond); cursor: pointer; font-weight: 600; font-size: 14px; color: var(--marine); }
+  .entete-niveau .compte { font-size: 12px; color: var(--texte-att); font-weight: 500; }
+  .carte-niveau table { margin: 0; }
+  .carte-niveau th { display: none; }
+  .carte-niveau table thead { display: none; }
+
+  .grille-dispo { overflow-x: auto; border: 1px solid var(--bordure); border-radius: 8px; }
+  .grille-dispo table { min-width: 720px; margin: 0; }
+  .case-dispo { text-align: center; cursor: pointer; user-select: none; font-size: 15px; color: var(--bordure); font-weight: bold; white-space: nowrap; }
+  .case-dispo.actif { background: #ecfdf3; color: var(--vert); }
+  .case-dispo:hover { background: #f0f0ee; }
+  .barre-dispo-actions { display: flex; gap: 8px; margin: 10px 0 16px 0; }
+
+  .carte-prof { border: 1px solid var(--bordure); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; background: var(--fond); gap: 10px; }
+  .carte-prof .nom { font-weight: 700; color: var(--marine); }
+  .carte-prof .details { font-size: 12.5px; color: var(--texte-att); margin-top: 2px; }
+  .carte-prof .actions-prof { display: flex; gap: 6px; flex-shrink: 0; }
+  .tag-temps-plein { display: inline-block; background: var(--or-clair); color: #7a5a05; font-size: 11px; padding: 1px 7px; border-radius: 8px; margin-left: 6px; font-weight: 700; }
+
+  .message-erreur { background: #fef2f2; border-left: 3px solid var(--rouge); color: #991b1b; padding: 12px 14px; border-radius: 4px; font-size: 13px; margin-top: 14px; text-align: left; }
+  .message-succes { background: #f0fdf4; border-left: 3px solid var(--vert); color: #166534; padding: 12px 14px; border-radius: 4px; font-size: 13px; margin-top: 14px; text-align: left; }
+  .message-avert { background: #fffbeb; border-left: 3px solid var(--or); color: #7a5a05; padding: 12px 14px; border-radius: 4px; font-size: 13px; margin-top: 14px; text-align: left; }
+
+  .onglets-classes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .onglet-classe { padding: 7px 14px; border-radius: 7px; border: 1px solid var(--bordure); background: white; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .onglet-classe.actif { background: var(--marine); color: white; border-color: var(--marine); }
+
+  .actions-resultat { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+  footer { text-align: center; font-size: 12px; color: #9c9c96; margin-top: 30px; }
+
+  @media print {
+    header, nav.etapes-nav, .carte, .actions-resultat, .onglets-classes, footer { display: none !important; }
+    #resultatImpression { display: block !important; }
+  }
+  #resultatImpression { display: none; }
+  #resultatImpression h1 { color: var(--marine); }
+  #resultatImpression table { border-collapse: collapse; width: 100%; margin-bottom: 26px; }
+  #resultatImpression th, #resultatImpression td { border: 1px solid #888; padding: 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="entete-contenu">
+    <div class="logo-ecole">
+      <div class="badge-logo">GS</div>
+      <div><h1>Groupe Scolaire SALDIA</h1><p>Générateur d'emploi du temps</p></div>
+    </div>
+    <div class="statut-sauvegarde" id="statutSauvegarde">Enregistrement automatique actif</div>
+  </div>
+</header>
+
+<div class="conteneur">
+  <nav class="etapes-nav" id="navEtapes"></nav>
+
+  <!-- ETAPE 1 : CLASSES -->
+  <div class="etape" data-etape="1">
+    <div class="carte">
+      <h2>Les classes</h2>
+      <p class="sous-titre">Crée chaque division. Les matières et heures se règlent une seule fois par niveau, à l'étape suivante.</p>
+
+      <div class="ligne-form">
+        <div class="champ">
+          <label>Cycle</label>
+          <select id="classeCycle"><option value="collège">Collège</option><option value="lycée">Lycée</option></select>
+        </div>
+        <div class="champ"><label>Niveau (ex : 6ème, 2nde)</label><input type="text" id="classeNiveau" placeholder="6ème"></div>
+        <div class="champ"><label>Division (ex : M1, S A)</label><input type="text" id="classeDivision" placeholder="M1"></div>
+        <div><button onclick="ajouterClasse()">Ajouter la classe</button></div>
+      </div>
+
+      <div class="champ" style="margin-bottom:14px;">
+        <label>Rechercher</label>
+        <input type="search" id="rechercheClasses" placeholder="Ex : 6ème, M2..." oninput="rendreClassesGroupees()">
+      </div>
+
+      <div id="listeClassesGroupee"></div>
+    </div>
+  </div>
+
+  <!-- ETAPE 2 : VOLUMES HORAIRES PAR NIVEAU -->
+  <div class="etape" data-etape="2">
+    <div class="carte">
+      <h2>Matières et heures par niveau</h2>
+      <p class="sous-titre">Un seul réglage par niveau — il s'applique automatiquement à toutes ses divisions.</p>
+      <div class="aide"><b>Exemple :</b> "6ème → Français → 4h" s'applique à 6ème M1, M2, M3… automatiquement.</div>
+
+      <div class="ligne-form">
+        <div class="champ"><label>Niveau</label><select id="volumeNiveau"></select></div>
+        <div class="champ"><label>Matière</label><input type="text" id="volumeMatiere" placeholder="Français"></div>
+        <div class="champ" style="max-width:150px;"><label>Heures / semaine</label><input type="number" id="volumeHeures" min="1" max="20"></div>
+        <div><button onclick="ajouterVolume()">Ajouter</button></div>
+      </div>
+
+      <div id="listeVolumesGroupee"></div>
+    </div>
+  </div>
+
+  <!-- ETAPE 3 : PROFESSEURS -->
+  <div class="etape" data-etape="3">
+    <div class="carte" id="carteFormulaireProf">
+      <h2 id="titreFormulaireProf">Professeurs et disponibilités</h2>
+      <p class="sous-titre">Un professeur est automatiquement affecté aux classes qui correspondent à ses matières et niveaux.</p>
+
+      <div class="ligne-form">
+        <div class="champ"><label>Nom du professeur</label><input type="text" id="profNom" placeholder="M. Fall"></div>
+      </div>
+
+      <div class="champ-groupe">
+        <label>Matière(s) enseignée(s)</label>
+        <div id="casesMatieresProf" class="cases-checkbox"></div>
+      </div>
+
+      <div class="champ-groupe">
+        <label>Niveaux concernés</label>
+        <div id="casesNiveauxProf" class="cases-checkbox"></div>
+      </div>
+
+      <div class="champ-groupe">
+        <label>Préférence pour des classes précises (optionnel)</label>
+        <div id="casesPreferencesProf" class="cases-checkbox"></div>
+      </div>
+
+      <label>Disponibilités</label>
+      <div class="barre-dispo-actions">
+        <button class="or" onclick="basculerTempsPlein()">☀ Disponible à temps plein (tout cocher)</button>
+        <button class="discret" onclick="viderDispoNouveau()">Tout décocher</button>
+      </div>
+      <div class="grille-dispo"><table id="grilleDispoNouveau"></table></div>
+
+      <div style="margin-top:16px; display:flex; gap:8px;">
+        <button id="boutonEnregistrerProf" onclick="ajouterProf()">Enregistrer ce professeur</button>
+        <button id="boutonAnnulerEdition" class="discret" style="display:none;" onclick="annulerEditionProf()">Annuler la modification</button>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2 style="font-size:15px;">Professeurs enregistrés</h2>
+      <div id="listeProfs"></div>
+    </div>
+  </div>
+
+  <!-- ETAPE 4 : SUIVI (ce qui reste à compléter) -->
+  <div class="etape" data-etape="4">
+    <div class="carte">
+      <h2>Suivi — ce qu'il reste à compléter</h2>
+      <p class="sous-titre">Vue par classe et par professeur. Tu peux générer le planning même si tout n'est pas encore complet : les cases manquantes resteront simplement vides.</p>
+      <div id="resumeSuivi"></div>
+    </div>
+
+    <div class="carte">
+      <h2 style="font-size:15px;">Par classe</h2>
+      <div id="suiviParClasse"></div>
+    </div>
+
+    <div class="carte">
+      <h2 style="font-size:15px;">Par professeur</h2>
+      <div id="suiviParProf"></div>
+    </div>
+  </div>
+
+  <!-- ETAPE 5 : GENERATION -->
+  <div class="etape" data-etape="5">
+    <div class="carte" style="text-align:center; padding:36px 22px;">
+      <h2 style="text-align:center;">Générer l'emploi du temps</h2>
+      <p class="sous-titre" style="text-align:center;">Le professeur de chaque classe est déterminé automatiquement à partir des matières, niveaux et préférences réglés à l'étape 3. S'il manque des informations, consulte l'étape 4 (Suivi).</p>
+      <button class="or" style="font-size:15px; padding:13px 26px;" onclick="genererPlanning()">Générer l'emploi du temps</button>
+      <div id="messageGeneration"></div>
+    </div>
+
+    <div class="carte" id="zoneAttribution" style="display:none;">
+      <h2 style="font-size:15px;">Attribution automatique des professeurs</h2>
+      <div id="tableAttribution"></div>
+    </div>
+
+    <div class="carte" id="zoneResultat" style="display:none;">
+      <h2>Emploi du temps généré</h2>
+      <div class="onglets-classes" id="ongletsClasses"></div>
+      <div id="grilleResultat"></div>
+      <div class="actions-resultat">
+        <button class="or" onclick="window.print()">Exporter en PDF (impression)</button>
+        <button class="secondaire" onclick="allerEtape(5)">Re-générer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="carte" style="border-color:#f0d0d0;">
+    <h2 style="font-size:13px; color:#b9b9b3; margin-bottom:8px;">Zone de sécurité</h2>
+    <button class="danger" style="padding:8px 14px; font-size:13px;" onclick="toutEffacer()">Tout effacer et recommencer</button>
+  </div>
+</div>
+
+<div id="resultatImpression"></div>
+<footer>Vos données sont enregistrées dans ce navigateur et synchronisées avec votre espace Firebase.</footer>
+
+<script>
+/* ==========================================================
+   CONFIGURATION FIXE (grille de sonneries) — id interne + horaires affichés
+   ========================================================== */
+const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+
+const CRENEAUX_COLLEGE = [
+  {id:"C1", label:"8h-9h"}, {id:"C2", label:"9h-10h"}, {id:"C3", label:"10h-10h50"},
+  {id:"C4", label:"11h05-12h05"}, {id:"C5", label:"12h05-13h05"},
+  {id:"C6", label:"13h35-14h35"}, {id:"C7", label:"14h35-15h35"},
+];
+const CRENEAUX_LYCEE = CRENEAUX_COLLEGE.concat([
+  {id:"C8", label:"15h35-16h35"}, {id:"C9", label:"16h35-17h35"},
+]);
+const CRENEAUX_TOUS = CRENEAUX_LYCEE;
+
+function creneauxDuCycle(cycle) { return cycle === "lycée" ? CRENEAUX_LYCEE : CRENEAUX_COLLEGE; }
+function normaliser(txt) { return (txt || "").trim().toLowerCase(); }
+function nouvelId(prefixe) { return prefixe + "_" + Math.random().toString(36).slice(2, 9); }
+
+/* ==========================================================
+   FIREBASE (synchronisation ; voir les règles de sécurité fournies séparément)
+   ========================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDGC2LQYeSrlb6MRwtLlQGDzz-yJHtKf8c",
+  authDomain: "messagerie-65abc.firebaseapp.com",
+  projectId: "messagerie-65abc",
+  storageBucket: "messagerie-65abc.firebasestorage.app",
+  messagingSenderId: "363641716532",
+  appId: "1:363641716532:web:d16bd3b4eaf4abf4e8ef61"
+};
+const DOC_ID = "saldia-emploi-du-temps";
+let db = null;
+
+function initFirebase() {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    return true;
+  } catch (e) {
+    console.error("Firebase indisponible, mode local uniquement:", e);
+    return false;
+  }
+}
+
+/* ==========================================================
+   ETAT DE L'APPLICATION
+   ========================================================== */
+let etat = {
+  classes: [],            // {id, cycle, niveau, division}
+  volumesParNiveau: [],   // {id, cycle, niveau, matiere, heures}
+  profs: [],               // {id, nom, matieres:[...], niveaux:["cycle||niveau",...], preferences:[classeId,...], dispo:{...}}
+  resultatAttribution: null, // [{classeId, matiere, profId}] — calculé automatiquement
+  resultat: null           // planning généré
+};
+
+async function sauvegarder() {
+  localStorage.setItem("saldia_etat", JSON.stringify(etat));
+  const statut = document.getElementById("statutSauvegarde");
+  if (db) {
+    try {
+      await db.collection("emplois_du_temps").doc(DOC_ID).set(etat);
+      if (statut) statut.textContent = "Synchronisé avec le cloud";
+    } catch (e) {
+      console.error("Échec de synchronisation cloud:", e);
+      if (statut) statut.textContent = "Enregistré localement (cloud indisponible)";
+    }
+  }
+}
+
+function avecDelaiMax(promesse, ms) {
+  return Promise.race([
+    promesse,
+    new Promise((_, rejeter) => setTimeout(() => rejeter(new Error("Délai dépassé (" + ms + "ms)")), ms))
+  ]);
+}
+
+async function charger() {
+  const brut = localStorage.getItem("saldia_etat");
+  if (brut) { try { etat = JSON.parse(brut); } catch(e) {} }
+
+  if (initFirebase()) {
+    try {
+      await avecDelaiMax(firebase.auth().signInAnonymously(), 6000);
+      const snap = await avecDelaiMax(db.collection("emplois_du_temps").doc(DOC_ID).get(), 6000);
+      if (snap.exists) {
+        etat = snap.data();
+        localStorage.setItem("saldia_etat", JSON.stringify(etat));
+      }
+    } catch (e) {
+      console.error("Impossible de charger depuis le cloud, données locales utilisées:", e);
+      const statut = document.getElementById("statutSauvegarde");
+      if (statut) statut.textContent = "Mode local uniquement (cloud indisponible)";
+    }
+  }
+}
+
+function toutEffacer() {
+  if (!confirm("Tout effacer (classes, profs, matières, planning) ? Cette action est irréversible.")) return;
+  localStorage.removeItem("saldia_etat");
+  if (db) db.collection("emplois_du_temps").doc(DOC_ID).delete().catch(() => {});
+  location.reload();
+}
+
+/* ==========================================================
+   NAVIGATION PAR ETAPES
+   ========================================================== */
+const LIBELLES_ETAPES = ["Classes", "Matières / heures", "Professeurs", "Suivi", "Générer"];
+let etapeActive = 1;
+
+function allerEtape(n) {
+  etapeActive = n;
+  document.querySelectorAll(".etape").forEach(el => el.classList.toggle("active", Number(el.dataset.etape) === n));
+  construireNavEtapes();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function construireNavEtapes() {
+  const nav = document.getElementById("navEtapes");
+  nav.innerHTML = "";
+  LIBELLES_ETAPES.forEach((label, i) => {
+    const n = i + 1;
+    const btn = document.createElement("button");
+    btn.className = (n === etapeActive ? "actif" : "") + (etapeComplete(n) ? " complet" : "");
+    btn.innerHTML = `<span class="puce">${etapeComplete(n) && n !== etapeActive ? "✓" : n}</span><span>${label}</span>`;
+    btn.onclick = () => allerEtape(n);
+    nav.appendChild(btn);
+  });
+}
+function etapeComplete(n) {
+  if (n === 1) return etat.classes.length > 0;
+  if (n === 2) return etat.volumesParNiveau.length > 0;
+  if (n === 3) return etat.profs.length > 0;
+  if (n === 4) return etat.volumesParNiveau.length > 0 && autoAssignerProfs().erreurs.length === 0;
+  if (n === 5) return !!(etat.resultat && etat.resultat.length > 0);
+  return false;
+}
+
+/* ==========================================================
+   NIVEAUX / AIDES
+   ========================================================== */
+function niveauxDistincts() {
+  const vus = new Set(); const liste = [];
+  etat.classes.forEach(c => {
+    const cle = c.cycle + "||" + c.niveau;
+    if (!vus.has(cle)) { vus.add(cle); liste.push({ cle, cycle: c.cycle, niveau: c.niveau }); }
+  });
+  return liste;
+}
+function nomClasse(c) { return `${c.niveau} ${c.division} (${c.cycle})`; }
+function nomNiveau(n) { return `${n.niveau} (${n.cycle})`; }
+function volumesDuNiveau(cycle, niveau) { return etat.volumesParNiveau.filter(v => v.cycle === cycle && v.niveau === niveau); }
+function matieresPourClasse(classe) { return volumesDuNiveau(classe.cycle, classe.niveau); }
+function heuresPour(classe, matiere) {
+  const v = matieresPourClasse(classe).find(v => normaliser(v.matiere) === normaliser(matiere));
+  return v ? v.heures : null;
+}
+function nbClassesDuNiveau(cycle, niveau) { return etat.classes.filter(c => c.cycle === cycle && c.niveau === niveau).length; }
+function matieresDistinctes() {
+  const vues = new Map();
+  etat.volumesParNiveau.forEach(v => { const k = normaliser(v.matiere); if (!vues.has(k)) vues.set(k, v.matiere); });
+  return Array.from(vues.values());
+}
+function valeursCochees(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(i => i.value);
+}
+
+/* ==========================================================
+   ETAPE 1 : CLASSES (groupées par niveau + recherche)
+   ========================================================== */
+let niveauxClassesOuverts = new Set();
+
+function ajouterClasse() {
+  const cycle = document.getElementById("classeCycle").value;
+  const niveau = document.getElementById("classeNiveau").value.trim();
+  const division = document.getElementById("classeDivision").value.trim();
+  if (!niveau || !division) { alert("Indique le niveau et la division."); return; }
+
+  etat.classes.push({ id: nouvelId("classe"), cycle, niveau, division });
+  document.getElementById("classeNiveau").value = "";
+  document.getElementById("classeDivision").value = "";
+  niveauxClassesOuverts.add(cycle + "||" + niveau);
+  sauvegarder();
+  rafraichirTout();
+}
+function supprimerClasse(id) {
+  if (!confirm("Supprimer cette classe ?")) return;
+  etat.classes = etat.classes.filter(c => c.id !== id);
+  etat.profs.forEach(p => { p.preferences = (p.preferences || []).filter(cid => cid !== id); });
+  sauvegarder();
+  rafraichirTout();
+}
+function toggleNiveauClasse(cle) {
+  if (niveauxClassesOuverts.has(cle)) niveauxClassesOuverts.delete(cle); else niveauxClassesOuverts.add(cle);
+  rendreClassesGroupees();
+}
+function rendreClassesGroupees() {
+  const recherche = normaliser(document.getElementById("rechercheClasses").value);
+  const groupes = {};
+  etat.classes.forEach(c => {
+    const cle = c.cycle + "||" + c.niveau;
+    (groupes[cle] = groupes[cle] || { cycle: c.cycle, niveau: c.niveau, classes: [] }).classes.push(c);
+  });
+
+  let html = "";
+  Object.entries(groupes).forEach(([cle, g]) => {
+    const correspond = !recherche || normaliser(g.niveau).includes(recherche) || g.classes.some(c => normaliser(c.division).includes(recherche));
+    if (!correspond) return;
+    const ouvert = niveauxClassesOuverts.has(cle) || !!recherche;
+    html += `<div class="carte-niveau">
+      <div class="entete-niveau" onclick="toggleNiveauClasse('${cle}')">
+        <span>${ouvert ? "▾" : "▸"} ${g.niveau} (${g.cycle})</span>
+        <span class="compte">${g.classes.length} classe(s)</span>
+      </div>`;
+    if (ouvert) {
+      html += `<table><tbody>`;
+      g.classes.forEach(c => {
+        html += `<tr><td>${c.niveau} ${c.division}</td><td style="width:110px;"><button class="danger" onclick="supprimerClasse('${c.id}')">Supprimer</button></td></tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+    html += `</div>`;
+  });
+  document.getElementById("listeClassesGroupee").innerHTML = html || "<p style='color:#9c9c96;font-size:13px;'>Aucune classe.</p>";
+}
+
+/* ==========================================================
+   ETAPE 2 : VOLUMES HORAIRES PAR NIVEAU (groupés)
+   ========================================================== */
+let niveauxVolumesOuverts = new Set();
+
+function ajouterVolume() {
+  const cle = document.getElementById("volumeNiveau").value;
+  const matiere = document.getElementById("volumeMatiere").value.trim();
+  const heures = parseInt(document.getElementById("volumeHeures").value, 10);
+  if (!cle) { alert("Ajoute d'abord une classe à l'étape 1 (le niveau en sera déduit)."); return; }
+  if (!matiere || !heures || heures < 1) { alert("Indique une matière et un nombre d'heures valide."); return; }
+
+  const [cycle, niveau] = cle.split("||");
+  const existeDeja = etat.volumesParNiveau.some(v => v.cycle === cycle && v.niveau === niveau && normaliser(v.matiere) === normaliser(matiere));
+  if (existeDeja) { alert("Cette matière est déjà réglée pour ce niveau."); return; }
+
+  etat.volumesParNiveau.push({ id: nouvelId("vol"), cycle, niveau, matiere, heures });
+  document.getElementById("volumeMatiere").value = "";
+  document.getElementById("volumeHeures").value = "";
+  niveauxVolumesOuverts.add(cle);
+  sauvegarder();
+  rafraichirTout();
+}
+function supprimerVolume(id) {
+  const v = etat.volumesParNiveau.find(x => x.id === id);
+  if (!v) return;
+  if (!confirm("Supprimer cette matière pour ce niveau ?")) return;
+  etat.volumesParNiveau = etat.volumesParNiveau.filter(x => x.id !== id);
+  sauvegarder();
+  rafraichirTout();
+}
+function toggleNiveauVolume(cle) {
+  if (niveauxVolumesOuverts.has(cle)) niveauxVolumesOuverts.delete(cle); else niveauxVolumesOuverts.add(cle);
+  rendreVolumesGroupees();
+}
+function rendreVolumesGroupees() {
+  const groupes = {};
+  etat.volumesParNiveau.forEach(v => {
+    const cle = v.cycle + "||" + v.niveau;
+    (groupes[cle] = groupes[cle] || { cycle: v.cycle, niveau: v.niveau, volumes: [] }).volumes.push(v);
+  });
+
+  let html = "";
+  Object.entries(groupes).forEach(([cle, g]) => {
+    const ouvert = niveauxVolumesOuverts.has(cle);
+    html += `<div class="carte-niveau">
+      <div class="entete-niveau" onclick="toggleNiveauVolume('${cle}')">
+        <span>${ouvert ? "▾" : "▸"} ${g.niveau} (${g.cycle})</span>
+        <span class="compte">${g.volumes.length} matière(s) — ${nbClassesDuNiveau(g.cycle, g.niveau)} classe(s)</span>
+      </div>`;
+    if (ouvert) {
+      html += `<table><tbody>`;
+      g.volumes.forEach(v => {
+        html += `<tr><td>${v.matiere}</td><td style="width:110px;">${v.heures}h/semaine</td><td style="width:110px;"><button class="danger" onclick="supprimerVolume('${v.id}')">Supprimer</button></td></tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+    html += `</div>`;
+  });
+  document.getElementById("listeVolumesGroupee").innerHTML = html || "<p style='color:#9c9c96;font-size:13px;'>Aucun volume horaire réglé.</p>";
+}
+
+/* ==========================================================
+   ETAPE 3 : PROFESSEURS
+   ========================================================== */
+let dispoEnCours = {};
+let profEnEdition = null;
+
+function construireGrilleDispo(tableEl, dispoObjet, surClic) {
+  let html = "<thead><tr><th>Jour \\ Horaire</th>";
+  CRENEAUX_TOUS.forEach(c => html += `<th>${c.label}</th>`);
+  html += "</tr></thead><tbody>";
+  JOURS.forEach(jour => {
+    html += `<tr><td>${jour}</td>`;
+    CRENEAUX_TOUS.forEach(c => {
+      const actif = dispoObjet[jour] && dispoObjet[jour][c.id];
+      html += `<td class="case-dispo ${actif ? 'actif' : ''}" onclick="${surClic}('${jour}','${c.id}')">${actif ? '✓' : ''}</td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody>";
+  tableEl.innerHTML = html;
+}
+function toggleDispoNouveau(jour, creneauId) {
+  dispoEnCours[jour] = dispoEnCours[jour] || {};
+  dispoEnCours[jour][creneauId] = !dispoEnCours[jour][creneauId];
+  construireGrilleDispo(document.getElementById("grilleDispoNouveau"), dispoEnCours, "toggleDispoNouveau");
+}
+function basculerTempsPlein() {
+  const total = JOURS.length * CRENEAUX_TOUS.length;
+  const nbActifs = Object.values(dispoEnCours).reduce((acc, j) => acc + Object.values(j).filter(Boolean).length, 0);
+  const toutCocher = nbActifs < total;
+  dispoEnCours = {};
+  JOURS.forEach(j => { dispoEnCours[j] = {}; CRENEAUX_TOUS.forEach(c => { dispoEnCours[j][c.id] = toutCocher; }); });
+  construireGrilleDispo(document.getElementById("grilleDispoNouveau"), dispoEnCours, "toggleDispoNouveau");
+}
+function viderDispoNouveau() {
+  dispoEnCours = {};
+  construireGrilleDispo(document.getElementById("grilleDispoNouveau"), dispoEnCours, "toggleDispoNouveau");
+}
+function estTempsPlein(prof) {
+  const total = JOURS.length * CRENEAUX_TOUS.length;
+  const nbActifs = Object.values(prof.dispo).reduce((acc, j) => acc + Object.values(j).filter(Boolean).length, 0);
+  return nbActifs === total;
+}
+
+function construireCasesMatieresProf(selectionnees) {
+  const matieres = matieresDistinctes();
+  const zone = document.getElementById("casesMatieresProf");
+  if (matieres.length === 0) { zone.innerHTML = "<span class='vide'>Ajoute d'abord des matières à l'étape 2.</span>"; return; }
+  zone.innerHTML = matieres.map(m => `
+    <label class="case-checkbox-item">
+      <input type="checkbox" value="${m}" ${selectionnees.includes(m) ? "checked" : ""}> ${m}
+    </label>`).join("");
+}
+function construireCasesNiveauxProf(selectionnees) {
+  const niveaux = niveauxDistincts();
+  const zone = document.getElementById("casesNiveauxProf");
+  if (niveaux.length === 0) { zone.innerHTML = "<span class='vide'>Ajoute d'abord des classes à l'étape 1.</span>"; return; }
+  zone.innerHTML = niveaux.map(n => `
+    <label class="case-checkbox-item">
+      <input type="checkbox" value="${n.cle}" onchange="rafraichirCasesPreferencesProf()" ${selectionnees.includes(n.cle) ? "checked" : ""}> ${nomNiveau(n)}
+    </label>`).join("");
+}
+function rafraichirCasesPreferencesProf(selectionnees) {
+  selectionnees = selectionnees || [];
+  const niveauxCoches = valeursCochees("casesNiveauxProf");
+  const zone = document.getElementById("casesPreferencesProf");
+  const classesConcernees = etat.classes.filter(c => niveauxCoches.includes(c.cycle + "||" + c.niveau));
+  if (classesConcernees.length === 0) { zone.innerHTML = "<span class='vide'>Coche d'abord un ou plusieurs niveaux ci-dessus.</span>"; return; }
+  zone.innerHTML = classesConcernees.map(c => `
+    <label class="case-checkbox-item">
+      <input type="checkbox" value="${c.id}" ${selectionnees.includes(c.id) ? "checked" : ""}> ${nomClasse(c)}
+    </label>`).join("");
+}
+
+function ajouterProf() {
+  const nom = document.getElementById("profNom").value.trim();
+  const matieres = valeursCochees("casesMatieresProf");
+  const niveaux = valeursCochees("casesNiveauxProf");
+  const preferences = valeursCochees("casesPreferencesProf");
+
+  if (!nom) { alert("Indique le nom du professeur."); return; }
+  if (matieres.length === 0) { alert("Coche au moins une matière."); return; }
+  if (niveaux.length === 0) { alert("Coche au moins un niveau."); return; }
+  const auMoinsUneDispo = Object.values(dispoEnCours).some(j => Object.values(j).some(v => v));
+  if (!auMoinsUneDispo) { alert("Coche au moins une case de disponibilité (ou utilise le bouton temps plein)."); return; }
+
+  const donnees = { nom, matieres, niveaux, preferences, dispo: JSON.parse(JSON.stringify(dispoEnCours)) };
+
+  if (profEnEdition) {
+    const p = etat.profs.find(x => x.id === profEnEdition);
+    Object.assign(p, donnees);
+  } else {
+    etat.profs.push({ id: nouvelId("prof"), ...donnees });
+  }
+
+  annulerEditionProf();
+  sauvegarder();
+  rafraichirTout();
+}
+
+function commencerEditionProf(profId) {
+  const p = etat.profs.find(x => x.id === profId);
+  if (!p) return;
+  profEnEdition = profId;
+
+  document.getElementById("profNom").value = p.nom;
+  construireCasesMatieresProf(p.matieres);
+  construireCasesNiveauxProf(p.niveaux);
+  rafraichirCasesPreferencesProf(p.preferences || []);
+  dispoEnCours = JSON.parse(JSON.stringify(p.dispo));
+  construireGrilleDispo(document.getElementById("grilleDispoNouveau"), dispoEnCours, "toggleDispoNouveau");
+
+  document.getElementById("titreFormulaireProf").textContent = "Modifier : " + p.nom;
+  document.getElementById("boutonEnregistrerProf").textContent = "Enregistrer les modifications";
+  document.getElementById("boutonAnnulerEdition").style.display = "inline-block";
+  document.getElementById("carteFormulaireProf").classList.add("en-edition");
+  allerEtape(3);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function annulerEditionProf() {
+  profEnEdition = null;
+  document.getElementById("profNom").value = "";
+  construireCasesMatieresProf([]);
+  construireCasesNiveauxProf([]);
+  rafraichirCasesPreferencesProf([]);
+  dispoEnCours = {};
+  construireGrilleDispo(document.getElementById("grilleDispoNouveau"), dispoEnCours, "toggleDispoNouveau");
+  document.getElementById("titreFormulaireProf").textContent = "Professeurs et disponibilités";
+  document.getElementById("boutonEnregistrerProf").textContent = "Enregistrer ce professeur";
+  document.getElementById("boutonAnnulerEdition").style.display = "none";
+  document.getElementById("carteFormulaireProf").classList.remove("en-edition");
+}
+function supprimerProf(id) {
+  if (!confirm("Supprimer ce professeur ?")) return;
+  etat.profs = etat.profs.filter(p => p.id !== id);
+  if (profEnEdition === id) annulerEditionProf();
+  sauvegarder();
+  rafraichirTout();
+}
+function afficherListeProfs() {
+  const zone = document.getElementById("listeProfs");
+  if (etat.profs.length === 0) { zone.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucun professeur ajouté.</p>"; return; }
+
+  zone.innerHTML = etat.profs.map(p => {
+    const nbCreneaux = Object.values(p.dispo).reduce((acc, j) => acc + Object.values(j).filter(Boolean).length, 0);
+    const niveauxTxt = p.niveaux.map(cle => { const [cycle, niveau] = cle.split("||"); return `${niveau} (${cycle})`; }).join(", ");
+    const prefTxt = (p.preferences || []).map(cid => { const c = etat.classes.find(x => x.id === cid); return c ? nomClasse(c) : null; }).filter(Boolean).join(", ");
+    return `<div class="carte-prof">
+      <div>
+        <span class="nom">${p.nom}</span>${estTempsPlein(p) ? '<span class="tag-temps-plein">Temps plein</span>' : ''}
+        <div class="details">${p.matieres.join(", ")} — ${niveauxTxt} — ${nbCreneaux} créneau(x)/semaine</div>
+        ${prefTxt ? `<div class="details">Préférence : ${prefTxt}</div>` : ""}
+      </div>
+      <div class="actions-prof">
+        <button class="secondaire" style="padding:5px 10px;font-size:12px;" onclick="commencerEditionProf('${p.id}')">Modifier</button>
+        <button class="danger" onclick="supprimerProf('${p.id}')">Supprimer</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ==========================================================
+   ATTRIBUTION AUTOMATIQUE DES PROFESSEURS (remplace l'étape manuelle)
+   ========================================================== */
+function autoAssignerProfs() {
+  const liaisons = [];
+  const erreurs = [];
+
+  etat.volumesParNiveau.forEach(v => {
+    const classesDuNiveau = etat.classes.filter(c => c.cycle === v.cycle && c.niveau === v.niveau);
+    if (classesDuNiveau.length === 0) return;
+
+    const cleNiveau = v.cycle + "||" + v.niveau;
+    const eligibles = etat.profs.filter(p =>
+      p.matieres.some(m => normaliser(m) === normaliser(v.matiere)) &&
+      p.niveaux.includes(cleNiveau)
+    );
+
+    if (eligibles.length === 0) {
+      erreurs.push({ cycle: v.cycle, niveau: v.niveau, matiere: v.matiere });
+      return;
+    }
+
+    const charge = {};
+    eligibles.forEach(p => charge[p.id] = 0);
+    const assignees = new Set();
+
+    // 1) Respecter les préférences en premier
+    classesDuNiveau.forEach(classe => {
+      const preferents = eligibles.filter(p => (p.preferences || []).includes(classe.id));
+      if (preferents.length > 0) {
+        preferents.sort((a, b) => charge[a.id] - charge[b.id]);
+        const choisi = preferents[0];
+        liaisons.push({ classeId: classe.id, matiere: v.matiere, profId: choisi.id });
+        charge[choisi.id]++;
+        assignees.add(classe.id);
+      }
+    });
+
+    // 2) Répartir le reste en équilibrant la charge entre profs éligibles
+    classesDuNiveau.filter(c => !assignees.has(c.id)).forEach(classe => {
+      eligibles.sort((a, b) => charge[a.id] - charge[b.id]);
+      const choisi = eligibles[0];
+      liaisons.push({ classeId: classe.id, matiere: v.matiere, profId: choisi.id });
+      charge[choisi.id]++;
+    });
+  });
+
+  return { liaisons, erreurs };
+}
+
+/* ==========================================================
+   GENERATION DU PLANNING (backtracking, JS pur)
+   ========================================================== */
+function profDisponible(prof, jour, creneauId) { return !!(prof.dispo[jour] && prof.dispo[jour][creneauId]); }
+
+function genererPlanning() {
+  const zoneMsg = document.getElementById("messageGeneration");
+  zoneMsg.innerHTML = "";
+  document.getElementById("zoneAttribution").style.display = "none";
+  document.getElementById("zoneResultat").style.display = "none";
+
+  if (etat.volumesParNiveau.length === 0 || etat.classes.length === 0) {
+    zoneMsg.innerHTML = `<div class="message-erreur">Complète d'abord les étapes 1 et 2.</div>`;
+    return;
+  }
+
+  const { liaisons, erreurs } = autoAssignerProfs();
+
+  let messageManques = "";
+  if (erreurs.length > 0) {
+    const liste = erreurs.map(e => `${e.niveau} (${e.cycle}) → ${e.matiere}`).join(" · ");
+    messageManques = `<div class="message-avert">
+      ${erreurs.length} matière(s) sans professeur, laissée(s) vide(s) dans le planning :<br><b>${liste}</b><br>
+      Complète-les à l'étape 3, puis reviens ici pour re-générer. Détail par classe : étape 4 (Suivi).
+    </div>`;
+  }
+  if (liaisons.length === 0) {
+    zoneMsg.innerHTML = `<div class="message-erreur">Aucune attribution possible pour l'instant. Vérifie les étapes 1 à 3.</div>${messageManques}`;
+    return;
+  }
+
+  etat.resultatAttribution = liaisons;
+  afficherAttribution(liaisons);
+
+  let sessions = [];
+  liaisons.forEach(l => {
+    const classe = etat.classes.find(c => c.id === l.classeId);
+    const heures = heuresPour(classe, l.matiere);
+    if (!heures) return;
+    for (let i = 0; i < heures; i++) sessions.push({ classeId: classe.id, cycle: classe.cycle, matiere: l.matiere, profId: l.profId });
+  });
+
+  const usedClasseSlot = new Set();
+  const usedProfSlot = new Set();
+  const assignation = [];
+  let compteurEtapes = 0;
+  const LIMITE_ETAPES = 300000;
+
+  function domainePourSession(s) {
+    const creneaux = creneauxDuCycle(s.cycle);
+    const prof = etat.profs.find(p => p.id === s.profId);
+    const options = [];
+    for (const jour of JOURS) {
+      for (const c of creneaux) {
+        const clesClasse = `${s.classeId}|${jour}|${c.id}`;
+        const clesProf = `${s.profId}|${jour}|${c.id}`;
+        if (usedClasseSlot.has(clesClasse)) continue;
+        if (usedProfSlot.has(clesProf)) continue;
+        if (!profDisponible(prof, jour, c.id)) continue;
+        options.push({ jour, creneauId: c.id });
+      }
+    }
+    return options;
+  }
+
+  function backtrack(restantes) {
+    compteurEtapes++;
+    if (compteurEtapes > LIMITE_ETAPES) return "timeout";
+    if (restantes.length === 0) return true;
+
+    let indexChoisi = -1, meilleurDomaine = null;
+    for (let i = 0; i < restantes.length; i++) {
+      const d = domainePourSession(restantes[i]);
+      if (meilleurDomaine === null || d.length < meilleurDomaine.length) { meilleurDomaine = d; indexChoisi = i; if (d.length === 0) break; }
+    }
+    if (meilleurDomaine.length === 0) return { blocage: restantes[indexChoisi] };
+
+    const session = restantes[indexChoisi];
+    const reste = restantes.slice(0, indexChoisi).concat(restantes.slice(indexChoisi + 1));
+
+    for (const slot of meilleurDomaine) {
+      const clesClasse = `${session.classeId}|${slot.jour}|${slot.creneauId}`;
+      const clesProf = `${session.profId}|${slot.jour}|${slot.creneauId}`;
+      usedClasseSlot.add(clesClasse); usedProfSlot.add(clesProf);
+      assignation.push({ ...session, jour: slot.jour, creneauId: slot.creneauId });
+
+      const resultat = backtrack(reste);
+      if (resultat === true) return true;
+      if (resultat === "timeout") return "timeout";
+
+      assignation.pop();
+      usedClasseSlot.delete(clesClasse); usedProfSlot.delete(clesProf);
+    }
+    return { blocage: session };
+  }
+
+  const resultat = backtrack(sessions);
+
+  if (resultat === true) {
+    etat.resultat = assignation;
+    sauvegarder();
+    zoneMsg.innerHTML = `<div class="message-succes">Emploi du temps généré avec succès (0 conflit).</div>${messageManques}`;
+    document.getElementById("zoneResultat").style.display = "block";
+    afficherResultat();
+  } else if (resultat === "timeout") {
+    zoneMsg.innerHTML = `<div class="message-erreur">Le calcul a pris trop de temps. Réduis les heures demandées ou élargis les disponibilités.</div>${messageManques}`;
+  } else {
+    const classe = etat.classes.find(c => c.id === resultat.blocage.classeId);
+    const prof = etat.profs.find(p => p.id === resultat.blocage.profId);
+    zoneMsg.innerHTML = `<div class="message-erreur">
+      Impossible de placer un cours de <b>${resultat.blocage.matiere}</b> pour <b>${classe ? nomClasse(classe) : "?"}</b>
+      avec <b>${prof ? prof.nom : "?"}</b>.<br>Cause probable : disponibilités insuffisantes pour ce professeur au vu du nombre de classes qui lui sont attribuées.
+    </div>${messageManques}`;
+  }
+}
+
+function afficherAttribution(liaisons) {
+  const zone = document.getElementById("zoneAttribution");
+  const contenu = document.getElementById("tableAttribution");
+  let html = `<table><thead><tr><th>Classe</th><th>Matière</th><th>Professeur</th><th>Heures</th></tr></thead><tbody>`;
+  liaisons.forEach(l => {
+    const classe = etat.classes.find(c => c.id === l.classeId);
+    const prof = etat.profs.find(p => p.id === l.profId);
+    const heures = classe ? heuresPour(classe, l.matiere) : null;
+    html += `<tr><td>${classe ? nomClasse(classe) : "?"}</td><td>${l.matiere}</td><td>${prof ? prof.nom : "?"}</td><td>${heures ? heures + "h" : "—"}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  contenu.innerHTML = html;
+  zone.style.display = "block";
+}
+
+/* ==========================================================
+   ETAPE 4 : SUIVI (ce qui manque, par classe et par professeur)
+   ========================================================== */
+function afficherSuivi() {
+  const { liaisons, erreurs } = autoAssignerProfs();
+
+  // --- Résumé en tête de page ---
+  const zoneResume = document.getElementById("resumeSuivi");
+  if (etat.classes.length === 0 || etat.volumesParNiveau.length === 0) {
+    zoneResume.innerHTML = `<div class="message-avert">Complète d'abord les étapes 1 et 2 pour voir le suivi.</div>`;
+  } else if (erreurs.length === 0) {
+    zoneResume.innerHTML = `<div class="message-succes">Tout est couvert : chaque matière de chaque niveau a un professeur.</div>`;
+  } else {
+    zoneResume.innerHTML = `<div class="message-avert">${erreurs.length} matière(s) sans professeur pour l'instant — le planning pourra quand même être généré, ces cases resteront vides.</div>`;
+  }
+
+  // --- Par classe ---
+  const zoneClasse = document.getElementById("suiviParClasse");
+  if (etat.classes.length === 0) {
+    zoneClasse.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucune classe.</p>";
+  } else {
+    let html = `<table><thead><tr><th>Classe</th><th>Matière</th><th>Heures</th><th>Professeur</th></tr></thead><tbody>`;
+    etat.classes.forEach(classe => {
+      const matieres = matieresPourClasse(classe);
+      if (matieres.length === 0) {
+        html += `<tr><td>${nomClasse(classe)}</td><td colspan="3" style="color:#b8860b;">Aucune matière réglée pour ce niveau (étape 2)</td></tr>`;
+        return;
+      }
+      matieres.forEach(v => {
+        const liaison = liaisons.find(l => l.classeId === classe.id && normaliser(l.matiere) === normaliser(v.matiere));
+        const prof = liaison ? etat.profs.find(p => p.id === liaison.profId) : null;
+        html += `<tr><td>${nomClasse(classe)}</td><td>${v.matiere}</td><td>${v.heures}h</td>
+          <td>${prof ? prof.nom : '<span style="color:#b91c1c;font-weight:600;">⚠ Aucun professeur</span>'}</td></tr>`;
+      });
+    });
+    html += `</tbody></table>`;
+    zoneClasse.innerHTML = html;
+  }
+
+  // --- Par professeur ---
+  const zoneProf = document.getElementById("suiviParProf");
+  if (etat.profs.length === 0) {
+    zoneProf.innerHTML = "<p style='color:#9c9c96;font-size:13px;'>Aucun professeur.</p>";
+  } else {
+    let html = `<table><thead><tr><th>Professeur</th><th>Matière(s)</th><th>Niveaux couverts</th><th>Classes attribuées</th></tr></thead><tbody>`;
+    etat.profs.forEach(p => {
+      const assignations = liaisons.filter(l => l.profId === p.id);
+      const niveauxTxt = p.niveaux.map(cle => { const [cycle, niveau] = cle.split("||"); return `${niveau} (${cycle})`; }).join(", ");
+      const classesTxt = assignations.map(l => { const c = etat.classes.find(x => x.id === l.classeId); return c ? `${nomClasse(c)} (${l.matiere})` : null; }).filter(Boolean).join(", ");
+      html += `<tr><td>${p.nom}</td><td>${p.matieres.join(", ")}</td><td>${niveauxTxt || "—"}</td>
+        <td>${classesTxt || '<span style="color:#b8860b;">Aucune classe attribuée pour l’instant</span>'}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    zoneProf.innerHTML = html;
+  }
+}
+
+/* ==========================================================
+   AFFICHAGE DU RESULTAT
+   ========================================================== */
+let classeAffichee = null;
+
+function afficherResultat() {
+  if (etat.resultatAttribution) afficherAttribution(etat.resultatAttribution);
+
+  const onglets = document.getElementById("ongletsClasses");
+  onglets.innerHTML = "";
+  etat.classes.forEach(c => {
+    const btn = document.createElement("div");
+    btn.className = "onglet-classe" + (classeAffichee === c.id ? " actif" : "");
+    btn.textContent = nomClasse(c);
+    btn.onclick = () => { classeAffichee = c.id; afficherResultat(); };
+    onglets.appendChild(btn);
+  });
+
+  if (!classeAffichee && etat.classes.length > 0) classeAffichee = etat.classes[0].id;
+  const classe = etat.classes.find(c => c.id === classeAffichee);
+  if (!classe) return;
+
+  const creneaux = creneauxDuCycle(classe.cycle);
+  const sessionsClasse = (etat.resultat || []).filter(s => s.classeId === classe.id);
+
+  let html = `<h3 style="font-size:14px; color:var(--marine);">${nomClasse(classe)}</h3><table><thead><tr><th>Horaire</th>`;
+  JOURS.forEach(j => html += `<th>${j}</th>`);
+  html += "</tr></thead><tbody>";
+  creneaux.forEach(c => {
+    html += `<tr><td>${c.label}</td>`;
+    JOURS.forEach(j => {
+      const s = sessionsClasse.find(x => x.jour === j && x.creneauId === c.id);
+      if (s) {
+        const prof = etat.profs.find(p => p.id === s.profId);
+        html += `<td><strong>${s.matiere}</strong><br><span style="font-size:11px;color:#9c9c96;">${prof ? prof.nom : ""}</span></td>`;
+      } else { html += `<td style="color:#e5e5e0;">—</td>`; }
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  document.getElementById("grilleResultat").innerHTML = html;
+
+  let htmlImpression = `<h1>Emploi du temps — Groupe Scolaire SALDIA</h1>`;
+  etat.classes.forEach(cl => {
+    const cr = creneauxDuCycle(cl.cycle);
+    const sess = (etat.resultat || []).filter(s => s.classeId === cl.id);
+    htmlImpression += `<h2>${nomClasse(cl)}</h2><table><tr><th>Horaire</th>`;
+    JOURS.forEach(j => htmlImpression += `<th>${j}</th>`);
+    htmlImpression += "</tr>";
+    cr.forEach(c => {
+      htmlImpression += `<tr><td>${c.label}</td>`;
+      JOURS.forEach(j => {
+        const s = sess.find(x => x.jour === j && x.creneauId === c.id);
+        const prof = s ? etat.profs.find(p => p.id === s.profId) : null;
+        htmlImpression += `<td>${s ? s.matiere + (prof ? " (" + prof.nom + ")" : "") : ""}</td>`;
+      });
+      htmlImpression += "</tr>";
+    });
+    htmlImpression += "</table>";
+  });
+  document.getElementById("resultatImpression").innerHTML = htmlImpression;
+}
+
+/* ==========================================================
+   RAFRAICHISSEMENT GENERAL
+   ========================================================== */
+function rafraichirTout() {
+  rendreClassesGroupees();
+
+  const niveaux = niveauxDistincts();
+  document.getElementById("volumeNiveau").innerHTML = niveaux.map(n => `<option value="${n.cle}">${nomNiveau(n)}</option>`).join("");
+  rendreVolumesGroupees();
+
+  if (!profEnEdition) {
+    construireCasesMatieresProf([]);
+    construireCasesNiveauxProf([]);
+    rafraichirCasesPreferencesProf([]);
+  }
+  afficherListeProfs();
+  afficherSuivi();
+
+  construireNavEtapes();
+
+  if (etat.resultat && etat.resultat.length > 0) {
+    document.getElementById("zoneResultat").style.display = "block";
+    afficherResultat();
+  }
+}
+
+/* ==========================================================
+   DEMARRAGE
+   ========================================================== */
+(async function demarrer() {
+  try {
+    await charger();
+  } catch (e) {
+    console.error("Chargement (cloud ou local) en échec, poursuite quand même:", e);
+  }
+  try {
+    construireGrilleDispo(document.getElementById("grilleDispoNouveau"), dispoEnCours, "toggleDispoNouveau");
+  } catch (e) {
+    console.error("Erreur à la construction de la grille de disponibilité:", e);
+  }
+  try {
+    rafraichirTout();
+  } catch (e) {
+    console.error("Erreur à l'affichage général:", e);
+  }
+  try {
+    allerEtape(1);
+  } catch (e) {
+    console.error("Erreur de navigation initiale:", e);
+  }
+})();
+</script>
+
+</body>
+</html> 
